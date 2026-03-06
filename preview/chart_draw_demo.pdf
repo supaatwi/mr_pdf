@@ -1,0 +1,168 @@
+%PDF-1.4
+%‚„œ”
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Page
+   /Parent 2 0 R
+   /Resources 3 0 R
+   /MediaBox [0 0 595.28 841.89]
+   /Contents 7 0 R
+>>
+endobj
+7 0 obj
+<< /Length 2134 >>
+stream
+BT
+/FBuiltin 20.0 Tf
+146.84 767.89 Td
+(Chart & Drawing Demonstration) Tj
+ET
+BT
+/FBuiltin 14.0 Tf
+50.00 723.89 Td
+(1. Basic Drawing Elements) Tj
+ET
+0.000 0.000 0.000 RG
+100.00 500.00 100.00 100.00 re S
+100.00 600.00 m 150.00 650.00 l S
+150.00 650.00 m 200.00 600.00 l S
+1.000 0.392 0.392 rg
+250.00 500.00 80.00 80.00 re f
+0.392 0.392 1.000 rg
+400.00 580.00 m
+422.09 580.00 440.00 562.09 440.00 540.00 c
+440.00 517.91 422.09 500.00 400.00 500.00 c
+377.91 500.00 360.00 517.91 360.00 540.00 c
+360.00 562.09 377.91 580.00 400.00 580.00 c f
+0.000 0.000 0.000 RG
+480.00 570.00 m
+496.57 570.00 510.00 556.57 510.00 540.00 c
+510.00 523.43 496.57 510.00 480.00 510.00 c
+463.43 510.00 450.00 523.43 450.00 540.00 c
+450.00 556.57 463.43 570.00 480.00 570.00 c S
+BT
+/FBuiltin 14.0 Tf
+50.00 383.20 Td
+(2. Chart Component \(with Colors & Labels\)) Tj
+ET
+0.784 0.784 0.784 RG
+80.00 198.16 m 450.00 198.16 l S
+BT
+/FBuiltin 8.0 Tf
+50.00 185.56 Td
+(0) Tj
+ET
+80.00 228.16 m 450.00 228.16 l S
+BT
+/FBuiltin 8.0 Tf
+50.00 215.56 Td
+(20) Tj
+ET
+80.00 258.16 m 450.00 258.16 l S
+BT
+/FBuiltin 8.0 Tf
+50.00 245.56 Td
+(40) Tj
+ET
+80.00 288.16 m 450.00 288.16 l S
+BT
+/FBuiltin 8.0 Tf
+50.00 275.56 Td
+(60) Tj
+ET
+80.00 318.16 m 450.00 318.16 l S
+BT
+/FBuiltin 8.0 Tf
+50.00 305.56 Td
+(80) Tj
+ET
+80.00 348.16 m 450.00 348.16 l S
+BT
+/FBuiltin 8.0 Tf
+50.00 335.56 Td
+(100) Tj
+ET
+0.000 0.000 0.000 RG
+80.00 198.16 m 450.00 198.16 l S
+80.00 198.16 m 80.00 348.16 l S
+0.392 0.784 0.392 rg
+87.93 198.16 37.00 15.00 re f
+BT
+/FBuiltin 8.0 Tf
+87.93 173.56 Td
+(Mon) Tj
+ET
+0.392 0.784 0.392 rg
+140.79 198.16 37.00 75.00 re f
+BT
+/FBuiltin 8.0 Tf
+140.79 173.56 Td
+(Tue) Tj
+ET
+0.392 0.784 0.392 rg
+193.64 198.16 37.00 45.00 re f
+BT
+/FBuiltin 8.0 Tf
+193.64 173.56 Td
+(Wed) Tj
+ET
+0.392 0.784 0.392 rg
+246.50 198.16 37.00 120.00 re f
+BT
+/FBuiltin 8.0 Tf
+246.50 173.56 Td
+(Thu) Tj
+ET
+0.392 0.784 0.392 rg
+299.36 198.16 37.00 30.00 re f
+BT
+/FBuiltin 8.0 Tf
+299.36 173.56 Td
+(Fri) Tj
+ET
+0.392 0.784 0.392 rg
+352.21 198.16 37.00 150.00 re f
+BT
+/FBuiltin 8.0 Tf
+352.21 173.56 Td
+(Sat) Tj
+ET
+0.392 0.784 0.392 rg
+405.07 198.16 37.00 90.00 re f
+BT
+/FBuiltin 8.0 Tf
+405.07 173.56 Td
+(Sun) Tj
+ET
+
+endstream
+endobj
+3 0 obj
+<< /Font << /FBuiltin 5 0 R  >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [6 0 R ] >>
+endobj
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000002528 00000 n 
+0000002470 00000 n 
+0000002420 00000 n 
+0000000000 00000 n 
+0000000015 00000 n 
+0000000112 00000 n 
+0000000234 00000 n 
+4 0 obj
+<< >>
+endobj
+trailer
+<< /Size 8 /Root 1 0 R /Info 4 0 R >>
+startxref
+2577
+%%EOF

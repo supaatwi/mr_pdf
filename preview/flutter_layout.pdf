@@ -1,0 +1,106 @@
+%PDF-1.4
+%‚„œ”
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Page
+   /Parent 2 0 R
+   /Resources 3 0 R
+   /MediaBox [0 0 595.28 841.89]
+   /Contents 7 0 R
+>>
+endobj
+7 0 obj
+<< /Length 803 >>
+stream
+BT
+/FBuiltin 24.0 Tf
+85.48 763.09 Td
+(Flutter-like Layout \(Row & Column\)) Tj
+ET
+BT
+/FBuiltin 16.0 Tf
+50.00 715.25 Td
+(This is inside a Column) Tj
+ET
+BT
+/FBuiltin 12.0 Tf
+50.00 695.09 Td
+(Columns just stack elements vertically.) Tj
+ET
+BT
+/FBuiltin 12.0 Tf
+50.00 676.37 Td
+() Tj
+ET
+BT
+/FBuiltin 14.0 Tf
+50.00 635.25 Td
+(Row with Expanded \(flex weights\):) Tj
+ET
+BT
+/FBuiltin 12.0 Tf
+50.00 600.81 Td
+(Flex 2 \(wider\)) Tj
+ET
+BT
+/FBuiltin 12.0 Tf
+380.19 605.81 Td
+(Flex 1 \(narrower\)) Tj
+ET
+BT
+/FBuiltin 12.0 Tf
+50.00 577.09 Td
+() Tj
+ET
+BT
+/FBuiltin 14.0 Tf
+50.00 535.97 Td
+(Row with Mixed Widths \(Points, Percent, Flex\):) Tj
+ET
+BT
+/FBuiltin 12.0 Tf
+50.00 506.53 Td
+(Fixed 100pt) Tj
+ET
+BT
+/FBuiltin 12.0 Tf
+150.00 506.53 Td
+(20%) Tj
+ET
+BT
+/FBuiltin 12.0 Tf
+249.06 506.53 Td
+(Expanded Remainder) Tj
+ET
+
+endstream
+endobj
+3 0 obj
+<< /Font << /FBuiltin 5 0 R  >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [6 0 R ] >>
+endobj
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000001196 00000 n 
+0000001138 00000 n 
+0000001088 00000 n 
+0000000000 00000 n 
+0000000015 00000 n 
+0000000112 00000 n 
+0000000234 00000 n 
+4 0 obj
+<< >>
+endobj
+trailer
+<< /Size 8 /Root 1 0 R /Info 4 0 R >>
+startxref
+1245
+%%EOF

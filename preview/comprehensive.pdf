@@ -1,0 +1,207 @@
+%PDF-1.4
+%‚„œ”
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Page
+   /Parent 2 0 R
+   /Resources 3 0 R
+   /MediaBox [0 0 841.89 595.28]
+   /Contents 7 0 R
+>>
+endobj
+7 0 obj
+<< /Length 2869 >>
+stream
+BT
+/FBuiltin 24.0 Tf
+271.19 516.48 Td
+(Comprehensive PDF Report) Tj
+ET
+BT
+/FBuiltin 12.0 Tf
+196.30 493.44 Td
+(This report demonstrates styling, percent widths, and paper orientation.) Tj
+ET
+0.173 0.243 0.314 rg
+50.00 463.52 74.19 25.60 re f
+0.000 0.000 0.000 RG
+50.00 463.52 74.19 25.60 re S
+1.000 1.000 1.000 rg
+BT
+/FBuiltin 12.0 Tf
+80.85 470.92 Td
+(ID) Tj
+ET
+0.173 0.243 0.314 rg
+124.19 463.52 445.13 25.60 re f
+0.000 0.000 0.000 RG
+124.19 463.52 445.13 25.60 re S
+1.000 1.000 1.000 rg
+BT
+/FBuiltin 12.0 Tf
+129.19 470.92 Td
+(Description) Tj
+ET
+0.173 0.243 0.314 rg
+569.32 463.52 100.00 25.60 re f
+0.000 0.000 0.000 RG
+569.32 463.52 100.00 25.60 re S
+1.000 1.000 1.000 rg
+BT
+/FBuiltin 12.0 Tf
+600.60 470.92 Td
+(Status) Tj
+ET
+0.173 0.243 0.314 rg
+669.32 463.52 111.28 25.60 re f
+0.000 0.000 0.000 RG
+669.32 463.52 111.28 25.60 re S
+1.000 1.000 1.000 rg
+BT
+/FBuiltin 12.0 Tf
+744.41 470.92 Td
+(Total) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 440.52 74.19 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+79.29 447.52 Td
+(001) Tj
+ET
+0.000 0.000 0.000 RG
+124.19 440.52 445.13 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+129.19 447.52 Td
+(Short description) Tj
+ET
+0.000 0.000 0.000 RG
+569.32 440.52 100.00 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+598.52 447.52 Td
+(Finished) Tj
+ET
+0.000 0.000 0.000 RG
+669.32 440.52 111.28 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+723.61 447.52 Td
+($ 1,200.00) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 378.52 74.19 62.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+79.29 405.02 Td
+(002) Tj
+ET
+0.000 0.000 0.000 RG
+124.19 378.52 445.13 62.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+129.19 424.52 Td
+(This description is very long. Because we have vertical centering \(VAlign::Center\)) Tj
+ET
+BT
+/FBuiltin 10.0 Tf
+129.19 411.52 Td
+(and the new baseline adjustment, even with multiple lines, the text will look) Tj
+ET
+BT
+/FBuiltin 10.0 Tf
+129.19 398.52 Td
+(perfectly balanced inside the cell. It will not be too close to the top or the) Tj
+ET
+BT
+/FBuiltin 10.0 Tf
+129.19 385.52 Td
+(bottom line, providing a clean professional look.) Tj
+ET
+0.000 0.000 0.000 RG
+569.32 378.52 100.00 62.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+590.72 405.02 Td
+(In Progress) Tj
+ET
+0.000 0.000 0.000 RG
+669.32 378.52 111.28 62.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+723.61 405.02 Td
+($ 3,500.25) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 355.52 74.19 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+79.29 362.52 Td
+(003) Tj
+ET
+0.000 0.000 0.000 RG
+124.19 355.52 445.13 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+129.19 362.52 Td
+(Quick task) Tj
+ET
+0.000 0.000 0.000 RG
+569.32 355.52 100.00 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+595.92 362.52 Td
+(Completed) Tj
+ET
+0.000 0.000 0.000 RG
+669.32 355.52 111.28 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+734.01 362.52 Td
+($ 450.00) Tj
+ET
+
+endstream
+endobj
+3 0 obj
+<< /Font << /FBuiltin 5 0 R  >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [6 0 R ] >>
+endobj
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000003263 00000 n 
+0000003205 00000 n 
+0000003155 00000 n 
+0000000000 00000 n 
+0000000015 00000 n 
+0000000112 00000 n 
+0000000234 00000 n 
+4 0 obj
+<< >>
+endobj
+trailer
+<< /Size 8 /Root 1 0 R /Info 4 0 R >>
+startxref
+3312
+%%EOF

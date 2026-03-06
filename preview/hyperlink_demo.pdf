@@ -1,0 +1,146 @@
+%PDF-1.4
+%‚„œ”
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Page
+   /Parent 2 0 R
+   /Resources 3 0 R
+   /MediaBox [0 0 595.28 841.89]
+   /Contents 7 0 R
+   /Annots 8 0 R
+>>
+endobj
+7 0 obj
+<< /Length 1225 >>
+stream
+BT
+/FBuiltin 24.0 Tf
+210.28 772.69 Td
+(Hyperlink Demo) Tj
+ET
+BT
+/FBuiltin 14.0 Tf
+50.00 729.49 Td
+(1. This is a direct link to Google) Tj
+ET
+0.392 0.392 0.392 rg
+BT
+/FBuiltin 10.0 Tf
+50.00 704.49 Td
+(Click the text above to open Google.) Tj
+ET
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 16.0 Tf
+50.00 656.69 Td
+(2. Table with Links) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 624.39 150.00 24.30 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 631.59 Td
+(Site) Tj
+ET
+0.000 0.000 0.000 RG
+200.00 624.39 300.00 24.30 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+205.00 631.59 Td
+(Description) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 600.09 150.00 24.30 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 607.29 Td
+(GitHub) Tj
+ET
+0.000 0.000 0.000 RG
+200.00 600.09 300.00 24.30 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+205.00 607.29 Td
+(The place where world builds software.) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 561.49 150.00 38.60 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 582.99 Td
+(Rust Lang) Tj
+ET
+0.000 0.000 0.000 RG
+200.00 561.49 300.00 38.60 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+205.00 582.99 Td
+(Empowering everyone to build reliable and) Tj
+ET
+BT
+/FBuiltin 11.0 Tf
+205.00 568.69 Td
+(efficient software.) Tj
+ET
+
+endstream
+endobj
+9 0 obj
+<< /Type /Annot /Subtype /Link /Rect [50.00 726.69 297.52 740.69] /Border [0 0 0] /A << /Type /Action /S /URI /URI (https://www.google.com) >> >>
+endobj
+10 0 obj
+<< /Type /Annot /Subtype /Link /Rect [55.00 607.29 89.32 618.29] /Border [0 0 0] /A << /Type /Action /S /URI /URI (https://github.com) >> >>
+endobj
+11 0 obj
+<< /Type /Annot /Subtype /Link /Rect [50.00 600.09 200.00 624.39] /Border [0 0 0] /A << /Type /Action /S /URI /URI (https://github.com) >> >>
+endobj
+12 0 obj
+<< /Type /Annot /Subtype /Link /Rect [55.00 582.99 106.48 593.99] /Border [0 0 0] /A << /Type /Action /S /URI /URI (https://www.rust-lang.org) >> >>
+endobj
+13 0 obj
+<< /Type /Annot /Subtype /Link /Rect [50.00 561.49 200.00 600.09] /Border [0 0 0] /A << /Type /Action /S /URI /URI (https://www.rust-lang.org) >> >>
+endobj
+8 0 obj
+[ 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R ]
+endobj
+3 0 obj
+<< /Font << /FBuiltin 5 0 R  >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [6 0 R ] >>
+endobj
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+xref
+0 14
+0000000000 65535 f 
+0000002495 00000 n 
+0000002437 00000 n 
+0000002387 00000 n 
+0000000000 00000 n 
+0000000015 00000 n 
+0000000112 00000 n 
+0000000251 00000 n 
+0000002334 00000 n 
+0000001528 00000 n 
+0000001689 00000 n 
+0000001846 00000 n 
+0000002004 00000 n 
+0000002169 00000 n 
+4 0 obj
+<< >>
+endobj
+trailer
+<< /Size 14 /Root 1 0 R /Info 4 0 R >>
+startxref
+2544
+%%EOF

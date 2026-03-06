@@ -1,0 +1,372 @@
+%PDF-1.4
+%‚„œ”
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Page
+   /Parent 2 0 R
+   /Resources 3 0 R
+   /MediaBox [0 0 595.28 841.89]
+   /Contents 7 0 R
+   /Annots 8 0 R
+>>
+endobj
+7 0 obj
+<< /Length 4969 >>
+stream
+BT
+/FBuiltin 24.0 Tf
+185.32 772.69 Td
+(Table Styling Demo) Tj
+ET
+BT
+/FBuiltin 14.0 Tf
+50.00 719.49 Td
+(1. Full Border \(Default\)) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 678.19 148.58 24.30 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 685.39 Td
+(Item) Tj
+ET
+0.000 0.000 0.000 RG
+198.58 678.19 148.58 24.30 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+203.58 685.39 Td
+(Qty) Tj
+ET
+0.000 0.000 0.000 RG
+347.17 678.19 198.11 24.30 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+352.17 685.39 Td
+(Description) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 653.89 148.58 24.30 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 661.09 Td
+(Apple) Tj
+ET
+0.000 0.000 0.000 RG
+198.58 653.89 148.58 24.30 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+203.58 661.09 Td
+(10) Tj
+ET
+0.000 0.000 0.000 RG
+347.17 653.89 198.11 24.30 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+352.17 661.09 Td
+(Fresh red apples) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 629.59 148.58 24.30 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 636.79 Td
+(Banana) Tj
+ET
+0.000 0.000 0.000 RG
+198.58 629.59 148.58 24.30 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+203.58 636.79 Td
+(5) Tj
+ET
+0.000 0.000 0.000 RG
+347.17 629.59 198.11 24.30 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+352.17 636.79 Td
+(Ripened yellow bananas) Tj
+ET
+BT
+/FBuiltin 14.0 Tf
+50.00 588.39 Td
+(2. Ghost Style + Zebra Striping) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 547.09 m 198.58 547.09 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 554.29 Td
+(Service) Tj
+ET
+0.000 0.000 0.000 RG
+198.58 547.09 m 347.17 547.09 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+203.58 554.29 Td
+(Frequency) Tj
+ET
+0.000 0.000 0.000 RG
+347.17 547.09 m 545.28 547.09 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+352.17 554.29 Td
+(Cost) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 522.79 m 198.58 522.79 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 529.99 Td
+(Hosting) Tj
+ET
+0.000 0.000 0.000 RG
+198.58 522.79 m 347.17 522.79 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+203.58 529.99 Td
+(Monthly) Tj
+ET
+0.000 0.000 0.000 RG
+347.17 522.79 m 545.28 522.79 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+352.17 529.99 Td
+($10.00) Tj
+ET
+0.961 0.961 0.961 rg
+50.00 498.49 495.28 24.30 re f
+0.000 0.000 0.000 RG
+50.00 498.49 m 198.58 498.49 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 505.69 Td
+(Backup) Tj
+ET
+0.000 0.000 0.000 RG
+198.58 498.49 m 347.17 498.49 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+203.58 505.69 Td
+(Daily) Tj
+ET
+0.000 0.000 0.000 RG
+347.17 498.49 m 545.28 498.49 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+352.17 505.69 Td
+($5.00) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 474.19 m 198.58 474.19 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 481.39 Td
+(Support) Tj
+ET
+0.000 0.000 0.000 RG
+198.58 474.19 m 347.17 474.19 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+203.58 481.39 Td
+(Annual) Tj
+ET
+0.000 0.000 0.000 RG
+347.17 474.19 m 545.28 474.19 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+352.17 481.39 Td
+($100.00) Tj
+ET
+0.961 0.961 0.961 rg
+50.00 449.89 495.28 24.30 re f
+0.000 0.000 0.000 RG
+50.00 449.89 m 198.58 449.89 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 457.09 Td
+(Security) Tj
+ET
+0.000 0.000 0.000 RG
+198.58 449.89 m 347.17 449.89 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+203.58 457.09 Td
+(Monthly) Tj
+ET
+0.000 0.000 0.000 RG
+347.17 449.89 m 545.28 449.89 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+352.17 457.09 Td
+($15.00) Tj
+ET
+BT
+/FBuiltin 14.0 Tf
+50.00 408.69 Td
+(3. Header Only Border) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 367.39 m 297.64 367.39 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 374.59 Td
+(Attribute) Tj
+ET
+0.000 0.000 0.000 RG
+297.64 367.39 m 545.28 367.39 l S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+302.64 374.59 Td
+(Value) Tj
+ET
+0.000 0.000 0.000 RG
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 350.29 Td
+(Name) Tj
+ET
+0.000 0.000 0.000 RG
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+302.64 350.29 Td
+(Antigravity) Tj
+ET
+0.000 0.000 0.000 RG
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 325.99 Td
+(Role) Tj
+ET
+0.000 0.000 0.000 RG
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+302.64 325.99 Td
+(AI Assistant) Tj
+ET
+0.000 0.000 0.000 RG
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 301.69 Td
+(Status) Tj
+ET
+0.000 0.000 0.000 RG
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+302.64 301.69 Td
+(Active) Tj
+ET
+BT
+/FBuiltin 14.0 Tf
+50.00 253.29 Td
+(4. No Border \(Clean\)) Tj
+ET
+0.000 0.000 0.000 RG
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 219.19 Td
+(Key) Tj
+ET
+0.000 0.000 0.000 RG
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+302.64 219.19 Td
+(Description) Tj
+ET
+0.000 0.000 0.000 RG
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 194.89 Td
+(Minimalist) Tj
+ET
+0.000 0.000 0.000 RG
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+443.04 194.89 Td
+(Very clean layout) Tj
+ET
+0.000 0.000 0.000 RG
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+55.00 170.59 Td
+(Professional) Tj
+ET
+0.000 0.000 0.000 RG
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 11.0 Tf
+454.48 170.59 Td
+(Maximum clarity) Tj
+ET
+
+endstream
+endobj
+8 0 obj
+[ ]
+endobj
+3 0 obj
+<< /Font << /FBuiltin 5 0 R  >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [6 0 R ] >>
+endobj
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000005399 00000 n 
+0000005341 00000 n 
+0000005291 00000 n 
+0000000000 00000 n 
+0000000015 00000 n 
+0000000112 00000 n 
+0000000251 00000 n 
+0000005272 00000 n 
+4 0 obj
+<< /Title (Table Styling Demo) >>
+endobj
+trailer
+<< /Size 9 /Root 1 0 R /Info 4 0 R >>
+startxref
+5448
+%%EOF

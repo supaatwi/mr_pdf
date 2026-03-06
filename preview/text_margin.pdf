@@ -1,0 +1,76 @@
+%PDF-1.4
+%‚„œ”
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Page
+   /Parent 2 0 R
+   /Resources 3 0 R
+   /MediaBox [0 0 595.28 841.89]
+   /Contents 7 0 R
+>>
+endobj
+7 0 obj
+<< /Length 486 >>
+stream
+BT
+/FBuiltin 24.0 Tf
+147.88 763.09 Td
+(Text with Margins Sample) Tj
+ET
+BT
+/FBuiltin 12.0 Tf
+50.00 670.05 Td
+(This paragraph has a large margin top.) Tj
+ET
+BT
+/FBuiltin 14.0 Tf
+50.00 638.93 Td
+(This paragraph is separated by the margin bottom of the previous) Tj
+ET
+BT
+/FBuiltin 14.0 Tf
+50.00 617.09 Td
+(one.) Tj
+ET
+BT
+/FBuiltin 12.0 Tf
+169.72 567.65 Td
+(Centered text with top and bottom margins) Tj
+ET
+BT
+/FBuiltin 12.0 Tf
+320.64 518.93 Td
+(The end of the margin demonstration.) Tj
+ET
+
+endstream
+endobj
+3 0 obj
+<< /Font << /FBuiltin 5 0 R  >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [6 0 R ] >>
+endobj
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000879 00000 n 
+0000000821 00000 n 
+0000000771 00000 n 
+0000000000 00000 n 
+0000000015 00000 n 
+0000000112 00000 n 
+0000000234 00000 n 
+4 0 obj
+<< >>
+endobj
+trailer
+<< /Size 8 /Root 1 0 R /Info 4 0 R >>
+startxref
+928
+%%EOF

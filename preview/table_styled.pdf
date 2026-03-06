@@ -1,0 +1,217 @@
+%PDF-1.4
+%‚„œ”
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Page
+   /Parent 2 0 R
+   /Resources 3 0 R
+   /MediaBox [0 0 595.28 841.89]
+   /Contents 7 0 R
+>>
+endobj
+7 0 obj
+<< /Length 2799 >>
+stream
+BT
+/FBuiltin 24.0 Tf
+172.84 763.09 Td
+(Styled Table Example) Tj
+ET
+0.161 0.502 0.725 rg
+50.00 728.85 50.00 25.60 re f
+0.000 0.000 0.000 RG
+50.00 728.85 50.00 25.60 re S
+1.000 1.000 1.000 rg
+BT
+/FBuiltin 12.0 Tf
+68.76 733.85 Td
+(ID) Tj
+ET
+0.161 0.502 0.725 rg
+100.00 728.85 200.00 25.60 re f
+0.000 0.000 0.000 RG
+100.00 728.85 200.00 25.60 re S
+1.000 1.000 1.000 rg
+BT
+/FBuiltin 12.0 Tf
+105.00 733.85 Td
+(Description) Tj
+ET
+0.161 0.502 0.725 rg
+300.00 728.85 80.00 25.60 re f
+0.000 0.000 0.000 RG
+300.00 728.85 80.00 25.60 re S
+1.000 1.000 1.000 rg
+BT
+/FBuiltin 12.0 Tf
+321.28 733.85 Td
+(Status) Tj
+ET
+0.161 0.502 0.725 rg
+380.00 728.85 80.00 25.60 re f
+0.000 0.000 0.000 RG
+380.00 728.85 80.00 25.60 re S
+1.000 1.000 1.000 rg
+BT
+/FBuiltin 12.0 Tf
+423.80 733.85 Td
+(Price) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 705.85 50.00 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+72.40 710.85 Td
+(1) Tj
+ET
+0.000 0.000 0.000 RG
+100.00 705.85 200.00 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+105.00 710.85 Td
+(Simple row with short text) Tj
+ET
+0.000 0.000 0.000 RG
+300.00 705.85 80.00 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+324.40 710.85 Td
+(Active) Tj
+ET
+0.000 0.000 0.000 RG
+380.00 705.85 80.00 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+423.80 710.85 Td
+($ 0.00) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 604.85 50.00 101.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+72.40 687.85 Td
+(2) Tj
+ET
+0.000 0.000 0.000 RG
+100.00 604.85 200.00 101.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+105.00 687.85 Td
+(This description is very long and) Tj
+ET
+BT
+/FBuiltin 10.0 Tf
+105.00 674.85 Td
+(will wrap into multiple lines.) Tj
+ET
+BT
+/FBuiltin 10.0 Tf
+105.00 661.85 Td
+(Because we set the column vertical) Tj
+ET
+BT
+/FBuiltin 10.0 Tf
+105.00 648.85 Td
+(alignment to Center, this text will) Tj
+ET
+BT
+/FBuiltin 10.0 Tf
+105.00 635.85 Td
+(stay vertically centered even as the) Tj
+ET
+BT
+/FBuiltin 10.0 Tf
+105.00 622.85 Td
+(row height grows to accommodate the) Tj
+ET
+BT
+/FBuiltin 10.0 Tf
+105.00 609.85 Td
+(wrapped lines.) Tj
+ET
+0.000 0.000 0.000 RG
+300.00 604.85 80.00 101.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+321.80 687.85 Td
+(Pending) Tj
+ET
+0.000 0.000 0.000 RG
+380.00 604.85 80.00 101.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+413.40 687.85 Td
+($ 120.00) Tj
+ET
+0.000 0.000 0.000 RG
+50.00 581.85 50.00 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+72.40 586.85 Td
+(3) Tj
+ET
+0.000 0.000 0.000 RG
+100.00 581.85 200.00 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+105.00 586.85 Td
+(Another record) Tj
+ET
+0.000 0.000 0.000 RG
+300.00 581.85 80.00 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+329.60 586.85 Td
+(Done) Tj
+ET
+0.000 0.000 0.000 RG
+380.00 581.85 80.00 23.00 re S
+0.000 0.000 0.000 rg
+BT
+/FBuiltin 10.0 Tf
+418.60 586.85 Td
+($ 99.90) Tj
+ET
+
+endstream
+endobj
+3 0 obj
+<< /Font << /FBuiltin 5 0 R  >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [6 0 R ] >>
+endobj
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000003193 00000 n 
+0000003135 00000 n 
+0000003085 00000 n 
+0000000000 00000 n 
+0000000015 00000 n 
+0000000112 00000 n 
+0000000234 00000 n 
+4 0 obj
+<< >>
+endobj
+trailer
+<< /Size 8 /Root 1 0 R /Info 4 0 R >>
+startxref
+3242
+%%EOF
