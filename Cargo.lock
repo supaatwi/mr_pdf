@@ -114,7 +114,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mr-pdf"
+name = "mr_pdf"
 version = "0.1.0"
 dependencies = [
  "base64",
