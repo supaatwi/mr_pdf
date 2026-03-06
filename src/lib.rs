@@ -138,6 +138,9 @@ pub struct Pdf<W: Write> {
     pub metadata: Metadata,
     pub current_layout_width: Option<f64>,
     pub current_layout_margin: Option<f64>,
+    pub show_page_numbers: bool,
+    pub page_number_position: PageNumberPosition,
+    pub page_count: u32,
 }
 
 /// Horizontal text alignment.
@@ -162,10 +165,31 @@ pub enum Color {
     Rgb(u8, u8, u8),
 }
 
+/// Position for automatic page numbering.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum PageNumberPosition {
+    TopLeft,
+    TopCenter,
+    TopRight,
+    BottomLeft,
+    BottomCenter,
+    BottomRight,
+}
+
 impl Pdf<Vec<u8>> {
     /// Generate PDF entirely in memory.
     pub fn memory() -> std::io::Result<Self> {
         Self::new(Vec::new())
+    }
+
+    /// Convenience method to generate PDF in memory using a closure and return the bytes.
+    pub fn render<F>(f: F) -> std::io::Result<Vec<u8>>
+    where
+        F: FnOnce(&mut Pdf<Vec<u8>>) -> std::io::Result<()>,
+    {
+        let mut pdf = Self::memory()?;
+        f(&mut pdf)?;
+        pdf.finish()
     }
 }
 
@@ -202,6 +226,9 @@ impl<W: Write> Pdf<W> {
             },
             current_layout_width: None,
             current_layout_margin: None,
+            show_page_numbers: false,
+            page_number_position: PageNumberPosition::BottomCenter,
+            page_count: 0,
         })
     }
 
@@ -277,7 +304,7 @@ impl<W: Write> Pdf<W> {
         Ok(())
     }
 
-    fn ensure_page(&mut self) -> std::io::Result<()> {
+    pub fn ensure_page(&mut self) -> std::io::Result<()> {
         if self.current_page_id.is_none() {
             self.new_page()?;
         }
@@ -287,6 +314,7 @@ impl<W: Write> Pdf<W> {
     /// Explicitly starts a new page.
     pub fn new_page(&mut self) -> std::io::Result<()> {
         self.flush_page()?;
+        self.page_count += 1;
         self.cursor.x = self.margin;
         self.cursor.y = self.page_height - self.margin;
         let (p_id, c_id) = self.writer.add_page(self.page_width, self.page_height)?;
@@ -298,6 +326,34 @@ impl<W: Write> Pdf<W> {
 
     fn flush_page(&mut self) -> std::io::Result<()> {
         if let Some(c_id) = self.current_content_id {
+            if self.show_page_numbers {
+                let page_num = self.page_count;
+                let text = format!("Page {}", page_num);
+                let margin = 30.0;
+
+                let (x, y) = match self.page_number_position {
+                    PageNumberPosition::TopLeft => (margin, self.page_height - margin),
+                    PageNumberPosition::TopCenter => {
+                        (self.page_width / 2.0 - 20.0, self.page_height - margin)
+                    }
+                    PageNumberPosition::TopRight => {
+                        (self.page_width - margin - 40.0, self.page_height - margin)
+                    }
+                    PageNumberPosition::BottomLeft => (margin, margin),
+                    PageNumberPosition::BottomCenter => (self.page_width / 2.0 - 20.0, margin),
+                    PageNumberPosition::BottomRight => (self.page_width - margin - 40.0, margin),
+                };
+
+                // Temporarily add page number to stream
+                self.current_stream.push_str("q\n");
+                self.current_stream.push_str("0 0 0 rg\n"); // Black
+                self.current_stream.push_str(&format!(
+                    "BT /FBuiltin 10 Tf {:.2} {:.2} Td ({}) Tj ET\n",
+                    x, y, text
+                ));
+                self.current_stream.push_str("Q\n");
+            }
+
             self.writer
                 .write_content_stream(c_id, &self.current_stream)?;
             self.current_stream.clear();
@@ -689,6 +745,42 @@ impl<W: Write> Pdf<W> {
         Ok(())
     }
 
+    /// Draws a rectangle filled with a linear gradient.
+    pub fn fill_gradient_rect(
+        &mut self,
+        x: f64,
+        y: f64,
+        w: f64,
+        h: f64,
+        c1: Color,
+        c2: Color,
+        horizontal: bool,
+    ) -> std::io::Result<()> {
+        let rgb1 = match c1 {
+            Color::Rgb(r, g, b) => [r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0],
+        };
+        let rgb2 = match c2 {
+            Color::Rgb(r, g, b) => [r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0],
+        };
+        let coords = if horizontal {
+            [x, y, x + w, y]
+        } else {
+            [x, y + h, x, y] // Top to Bottom
+        };
+
+        let sh_id = self.writer.register_shading(rgb1, rgb2, coords);
+
+        self.ensure_page()?;
+        self.current_stream.push_str("q\n");
+        // Clipping path to the rectangle
+        self.current_stream
+            .push_str(&format!("{:.2} {:.2} {:.2} {:.2} re W n\n", x, y, w, h));
+        // Paint the shading
+        self.current_stream.push_str(&format!("/Sh{} sh\n", sh_id));
+        self.current_stream.push_str("Q\n");
+        Ok(())
+    }
+
     /// Draws a circle.
     pub fn circle(&mut self, x: f64, y: f64, radius: f64) -> std::io::Result<()> {
         self.draw_circle_op(x, y, radius, "S")
@@ -697,6 +789,108 @@ impl<W: Write> Pdf<W> {
     /// Draws a filled circle.
     pub fn fill_circle(&mut self, x: f64, y: f64, radius: f64) -> std::io::Result<()> {
         self.draw_circle_op(x, y, radius, "f")
+    }
+
+    /// Draws a rectangle with a shadow.
+    pub fn shadow_rect(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        blur: f64,
+    ) -> std::io::Result<()> {
+        self.ensure_page()?;
+        self.current_stream.push_str("q\n");
+        self.set_fill_color(Color::Rgb(200, 200, 200))?;
+        self.fill_rect(x + blur, y - blur, width, height)?;
+        self.current_stream.push_str("Q\n");
+        Ok(())
+    }
+
+    /// Draws a rounded rectangle.
+    pub fn rounded_rect(&mut self, x: f64, y: f64, w: f64, h: f64, r: f64) -> std::io::Result<()> {
+        self.draw_rounded_rect_op(x, y, w, h, r, "S")
+    }
+
+    /// Draws a filled rounded rectangle.
+    pub fn fill_rounded_rect(
+        &mut self,
+        x: f64,
+        y: f64,
+        w: f64,
+        h: f64,
+        r: f64,
+    ) -> std::io::Result<()> {
+        self.draw_rounded_rect_op(x, y, w, h, r, "f")
+    }
+
+    fn draw_rounded_rect_op(
+        &mut self,
+        x: f64,
+        y: f64,
+        w: f64,
+        h: f64,
+        r: f64,
+        op: &str,
+    ) -> std::io::Result<()> {
+        self.ensure_page()?;
+        let k = 0.552284749831 * r;
+        let stream = &mut self.current_stream;
+
+        // Start from top-left after the corner
+        stream.push_str(&format!("{:.2} {:.2} m\n", x + r, y + h));
+        // Top edge
+        stream.push_str(&format!("{:.2} {:.2} l\n", x + w - r, y + h));
+        // Top-right corner
+        stream.push_str(&format!(
+            "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
+            x + w - r + k,
+            y + h,
+            x + w,
+            y + h - r + k,
+            x + w,
+            y + h - r
+        ));
+        // Right edge
+        stream.push_str(&format!("{:.2} {:.2} l\n", x + w, y + r));
+        // Bottom-right corner
+        stream.push_str(&format!(
+            "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
+            x + w,
+            y + r - k,
+            x + w - r + k,
+            y,
+            x + w - r,
+            y
+        ));
+        // Bottom edge
+        stream.push_str(&format!("{:.2} {:.2} l\n", x + r, y));
+        // Bottom-left corner
+        stream.push_str(&format!(
+            "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
+            x + r - k,
+            y,
+            x,
+            y + r - k,
+            x,
+            y + r
+        ));
+        // Left edge
+        stream.push_str(&format!("{:.2} {:.2} l\n", x, y + h - r));
+        // Top-left corner
+        stream.push_str(&format!(
+            "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c {}\n",
+            x,
+            y + h - r + k,
+            x + r - k,
+            y + h,
+            x + r,
+            y + h,
+            op
+        ));
+
+        Ok(())
     }
 
     fn draw_circle_op(&mut self, x: f64, y: f64, radius: f64, op: &str) -> std::io::Result<()> {

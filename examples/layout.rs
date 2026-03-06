@@ -3,12 +3,12 @@ use std::fs::File;
 use std::io::BufWriter;
 
 fn main() -> std::io::Result<()> {
-    let file = File::create("preview/flutter_layout.pdf")?;
+    let file = File::create("preview/layout.pdf")?;
     let writer = BufWriter::new(file);
 
     let mut pdf = Pdf::new(writer)?;
 
-    pdf.text("Flutter-like Layout (Row & Column)")
+    pdf.text("Layout (Row & Column)")
         .size(24.0)
         .align_center()
         .margin_bottom(20.0);
@@ -62,6 +62,6 @@ fn main() -> std::io::Result<()> {
 
     pdf.finish()?;
 
-    println!("Successfully wrote flutter_layout.pdf to preview directory");
+    println!("Successfully wrote layout.pdf to preview directory");
     Ok(())
 }

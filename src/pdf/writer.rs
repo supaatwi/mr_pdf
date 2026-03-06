@@ -1,6 +1,8 @@
 use crate::Metadata;
 use crate::font::FontManager;
 use crate::layout::text::escape_pdf_str;
+use flate2::Compression;
+use flate2::write::ZlibEncoder;
 use std::io::Write;
 
 pub struct LinkAnnotation {
@@ -22,6 +24,8 @@ pub struct PdfWriter<W: Write> {
     builtin_font_id: u32,
     xobjects: Vec<u32>,
     page_annots: Vec<(u32, Vec<LinkAnnotation>)>,
+    pub compress: bool,
+    shadings: Vec<(u32, [f64; 3], [f64; 3], [f64; 4])>,
 }
 
 impl<W: Write> PdfWriter<W> {
@@ -39,6 +43,8 @@ impl<W: Write> PdfWriter<W> {
             builtin_font_id: 0,
             xobjects: Vec::new(),
             page_annots: Vec::new(),
+            compress: true,
+            shadings: Vec::new(),
         };
         slf.write_raw(b"%PDF-1.4\n%\xE2\xE3\xCF\xD3\n")?;
 
@@ -115,9 +121,21 @@ impl<W: Write> PdfWriter<W> {
     /// Appends a content stream to a specific object.
     pub fn write_content_stream(&mut self, content_id: u32, content: &str) -> std::io::Result<()> {
         self.start_obj(content_id)?;
-        let s = format!("<< /Length {} >>\nstream\n", content.len());
-        self.write_raw(s.as_bytes())?;
-        self.write_raw(content.as_bytes())?;
+        if self.compress {
+            let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+            encoder.write_all(content.as_bytes())?;
+            let compressed = encoder.finish()?;
+            let s = format!(
+                "<< /Length {} /Filter /FlateDecode >>\nstream\n",
+                compressed.len()
+            );
+            self.write_raw(s.as_bytes())?;
+            self.write_raw(&compressed)?;
+        } else {
+            let s = format!("<< /Length {} >>\nstream\n", content.len());
+            self.write_raw(s.as_bytes())?;
+            self.write_raw(content.as_bytes())?;
+        }
         self.write_raw(b"\nendstream\n")?;
         self.end_obj()?;
         Ok(())
@@ -125,6 +143,12 @@ impl<W: Write> PdfWriter<W> {
 
     pub fn register_xobject(&mut self, xobj_id: u32) {
         self.xobjects.push(xobj_id);
+    }
+
+    pub fn register_shading(&mut self, c1: [f64; 3], c2: [f64; 3], coords: [f64; 4]) -> u32 {
+        let id = self.alloc_id();
+        self.shadings.push((id, c1, c2, coords));
+        id
     }
 
     /// Finalizes the PDF by writing cross-reference tables and trailers.
@@ -182,8 +206,36 @@ impl<W: Write> PdfWriter<W> {
             }
             self.write_raw(b">> ")?;
         }
+        if !self.shadings.is_empty() {
+            self.write_raw(b"/Shading << ")?;
+            let sh_ids: Vec<u32> = self.shadings.iter().map(|s| s.0).collect();
+            for id in sh_ids {
+                self.write_raw(format!("/Sh{} {} 0 R ", id, id).as_bytes())?;
+            }
+            self.write_raw(b">> ")?;
+        }
         self.write_raw(b">>\n")?;
         self.end_obj()?;
+
+        let shadings = self.shadings.clone();
+        for (sh_id, c1, c2, coords) in shadings {
+            let func_id = self.alloc_id();
+            self.start_obj(func_id)?;
+            let s = format!(
+                "<< /FunctionType 2 /Domain [0 1] /C0 [{:.3} {:.3} {:.3}] /C1 [{:.3} {:.3} {:.3}] /N 1 >>\n",
+                c1[0], c1[1], c1[2], c2[0], c2[1], c2[2]
+            );
+            self.write_raw(s.as_bytes())?;
+            self.end_obj()?;
+
+            self.start_obj(sh_id)?;
+            let s = format!(
+                "<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [{:.2} {:.2} {:.2} {:.2}] /Function {} 0 R /Extend [true true] >>\n",
+                coords[0], coords[1], coords[2], coords[3], func_id
+            );
+            self.write_raw(s.as_bytes())?;
+            self.end_obj()?;
+        }
 
         self.start_obj(self.pages_id)?;
         let mut kids = String::new();
