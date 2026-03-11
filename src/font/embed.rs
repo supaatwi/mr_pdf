@@ -4,17 +4,12 @@ use std::io::Write;
 use ttf_parser::Face;
 
 /// Low-level function to embed a TTF font into the PDF document.
-/// It creates several PDF objects: FontFile2, FontDescriptor, CIDFont, ToUnicode, and Type0.
+/// It creates several PDF objects: FontFile2, FontDescriptor, CIDFont, and Type0.
 pub fn embed_ttf<W: Write>(writer: &mut PdfWriter<W>, font: &Font) -> std::io::Result<u32> {
-    let mut raw_bytes = font.raw_data.clone();
+    let raw_bytes = font.raw_data.clone();
     
-    // Only embed characters that were actually used (Subsetting)
-    let chars = font.used_chars.borrow();
-    if !chars.is_empty() {
-        if let Ok(subset) = fontcull::subset_font_data(&raw_bytes, &chars, &[]) {
-            raw_bytes = subset;
-        }
-    }
+    // Subsetting is disabled for now to maintain Glyph ID stability in streaming mode.
+    // This fixes the "garbled text" issue where GIDs were shifted during subsetting.
 
     let face = Face::parse(&raw_bytes, 0)
         .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid TTF"))?;
@@ -22,7 +17,6 @@ pub fn embed_ttf<W: Write>(writer: &mut PdfWriter<W>, font: &Font) -> std::io::R
     let font_file2_id = writer.alloc_id();
     let cid_font_id = writer.alloc_id();
     let font_descriptor_id = writer.alloc_id();
-    let to_unicode_id = writer.alloc_id();
     let type0_id = writer.alloc_id();
 
     writer.start_obj(font_file2_id)?;
@@ -65,35 +59,24 @@ pub fn embed_ttf<W: Write>(writer: &mut PdfWriter<W>, font: &Font) -> std::io::R
     writer.end_obj()?;
 
     let num_glyphs = face.number_of_glyphs();
-    let mut widths_str = String::from("[ ");
+    let mut widths_str = String::new();
     for i in 0..num_glyphs {
         let w = face.glyph_hor_advance(ttf_parser::GlyphId(i)).unwrap_or(0) as f64 * scale;
         widths_str.push_str(&format!("{:.0} ", w));
     }
-    widths_str.push(']');
 
     writer.start_obj(cid_font_id)?;
     let cid_dict = format!(
-        "<< /Type /Font\n   /Subtype /CIDFontType2\n   /BaseFont /{}\n   /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >>\n   /FontDescriptor {} 0 R\n   /W [ 0 {} ]\n   /CIDToGIDMap /Identity\n>>\n",
+        "<< /Type /Font\n   /Subtype /CIDFontType2\n   /BaseFont /{}\n   /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >>\n   /FontDescriptor {} 0 R\n   /W [ 0 [ {} ] ]\n   /CIDToGIDMap /Identity\n>>\n",
         font.name, font_descriptor_id, widths_str
     );
     writer.write_raw(cid_dict.as_bytes())?;
     writer.end_obj()?;
 
-    writer.start_obj(to_unicode_id)?;
-    let to_uni_content = b"/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\nendcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n";
-    let to_uni = format!(
-        "<< /Length {} >>\nstream\n{}\nendstream\n",
-        to_uni_content.len(),
-        String::from_utf8_lossy(to_uni_content)
-    );
-    writer.write_raw(to_uni.as_bytes())?;
-    writer.end_obj()?;
-
     writer.start_obj(type0_id)?;
     let type0_dict = format!(
-        "<< /Type /Font\n   /Subtype /Type0\n   /BaseFont /{}\n   /Encoding /Identity-H\n   /DescendantFonts [ {} 0 R ]\n   /ToUnicode {} 0 R\n>>\n",
-        font.name, cid_font_id, to_unicode_id
+        "<< /Type /Font\n   /Subtype /Type0\n   /BaseFont /{}\n   /Encoding /Identity-H\n   /DescendantFonts [ {} 0 R ]\n>>\n",
+        font.name, cid_font_id
     );
     writer.write_raw(type0_dict.as_bytes())?;
     writer.end_obj()?;

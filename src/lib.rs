@@ -143,6 +143,17 @@ pub struct Pdf<W: Write> {
     pub show_page_numbers: bool,
     pub page_number_position: PageNumberPosition,
     pub page_count: u32,
+    pub watermark: Option<Watermark>,
+}
+
+/// Configuration for page watermarks.
+#[derive(Clone, Debug)]
+pub struct Watermark {
+    pub text: String,
+    pub font_size: f64,
+    pub color: Color,
+    pub opacity: f64, // 0.0 to 1.0 (currently simulated via color if GS is limited)
+    pub angle: f64,   // Degrees (counter-clockwise)
 }
 
 /// Horizontal text alignment.
@@ -231,6 +242,7 @@ impl<W: Write> Pdf<W> {
             show_page_numbers: false,
             page_number_position: PageNumberPosition::BottomCenter,
             page_count: 0,
+            watermark: None,
         })
     }
 
@@ -311,6 +323,17 @@ impl<W: Write> Pdf<W> {
         Ok(())
     }
 
+    /// Sets a text watermark for all pages.
+    pub fn set_watermark(&mut self, text: &str, size: f64, color: Color, opacity: f64, angle: f64) {
+        self.watermark = Some(Watermark {
+            text: text.to_string(),
+            font_size: size,
+            color,
+            opacity,
+            angle,
+        });
+    }
+
     pub fn ensure_page(&mut self) -> std::io::Result<()> {
         if self.current_page_id.is_none() {
             self.new_page()?;
@@ -358,6 +381,40 @@ impl<W: Write> Pdf<W> {
                     "BT /FBuiltin 10 Tf {:.2} {:.2} Td ({}) Tj ET\n",
                     x, y, text
                 ));
+                self.current_stream.push_str("Q\n");
+            }
+
+            if let Some(wm) = &self.watermark {
+                self.current_stream.push_str("q\n");
+                let rgb = match wm.color {
+                    Color::Rgb(r, g, b) => (r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0),
+                };
+                
+                // Set color with some simulated opacity if needed
+                self.current_stream.push_str(&format!("{:.2} {:.2} {:.2} rg\n", rgb.0, rgb.1, rgb.2));
+                
+                let rad = wm.angle.to_radians();
+                let cos = rad.cos();
+                let sin = rad.sin();
+                
+                // Center of the page
+                let cx = self.page_width / 2.0;
+                let cy = self.page_height / 2.0;
+                
+                // Rotation and translation matrix
+                self.current_stream.push_str(&format!(
+                    "{:.4} {:.4} {:.4} {:.4} {:.4} {:.4} cm\n",
+                    cos, sin, -sin, cos, cx, cy
+                ));
+                
+                // Draw text (centered relative to rotation point)
+                // Roughly center the text string length
+                let est_w = wm.text.len() as f64 * wm.font_size * 0.3;
+                self.current_stream.push_str(&format!(
+                    "BT /FBuiltin {:.1} Tf {:.2} {:.2} Td ({}) Tj ET\n",
+                    wm.font_size, -est_w, -wm.font_size / 2.0, wm.text
+                ));
+                
                 self.current_stream.push_str("Q\n");
             }
 
@@ -467,6 +524,38 @@ impl<W: Write> Pdf<W> {
             w: None,
             h: None,
         }
+    }
+
+    /// Renders a QR code at the specified position.
+    #[cfg(feature = "qrcode")]
+    pub fn render_qr(&mut self, data: &str, x: f64, y: f64, size: f64) -> std::io::Result<()> {
+        use fast_qr::qr::QRBuilder;
+        let qrcode = QRBuilder::new(data.to_string())
+            .build()
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, format!("QR Error: {:?}", e)))?;
+        
+        let width = qrcode.size;
+        let module_size = size / width as f64;
+        
+        // Save state and set fill color to black
+        self.current_stream.push_str("q\n0 0 0 rg\n");
+        
+        for r in 0..width {
+            for c in 0..width {
+                // We use .value() to check if it's a black module
+                if qrcode.data[r * width + c].value() {
+                    let rx = x + (c as f64 * module_size);
+                    let ry = y + size - ((r + 1) as f64 * module_size);
+                    self.current_stream.push_str(&format!(
+                        "{:.2} {:.2} {:.2} {:.2} re f\n",
+                        rx, ry, module_size + 0.05, module_size + 0.05
+                    ));
+                }
+            }
+        }
+        
+        self.current_stream.push_str("Q\n");
+        Ok(())
     }
 
     /// Renders a chart. (Requires 'chart' feature)

@@ -12,6 +12,7 @@ pub struct Font {
     pub path: String,
     pub raw_data: Vec<u8>,
     pub used_chars: std::cell::RefCell<std::collections::HashSet<char>>,
+    pub glyph_to_char: std::cell::RefCell<std::collections::HashMap<u16, char>>,
 }
 
 /// Manages font registration, embedding, and text metrics.
@@ -43,6 +44,7 @@ impl FontManager {
             path: path.to_string(),
             raw_data,
             used_chars: std::cell::RefCell::new(std::collections::HashSet::new()),
+            glyph_to_char: std::cell::RefCell::new(std::collections::HashMap::new()),
         });
         self.name_to_id.insert(name.to_string(), id);
         Ok(id)
@@ -120,8 +122,10 @@ impl FontManager {
         let mut hex = String::with_capacity(text.len() * 4 + 2);
         hex.push('<');
         if let Ok(face) = ttf_parser::Face::parse(&font.raw_data, 0) {
+            let mut g2c = font.glyph_to_char.borrow_mut();
             for c in text.chars() {
                 let gid = face.glyph_index(c).map(|g| g.0).unwrap_or(0);
+                g2c.insert(gid, c);
                 hex.push_str(&format!("{:04X}", gid));
             }
         } else {

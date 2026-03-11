@@ -8,8 +8,9 @@
 - **Premium Aesthetics**: Built-in support for advanced layouts, charts, and modern typography.
 - **Flexible Layout Engine**: Flutter-inspired rows and columns (`Pdf::row`, `Pdf::column`) for complex designs.
 - **Interactive Elements**: Support for clickable hyperlinks in text, tables, and images.
-- **Advanced Tables**: Easy-to-use table builder with column spanning, striped rows, and auto-wrapping.
-- **Rich Media**: Support for JPEG, PNG images (file or Base64) and SVG rendering.
+- **Rich Text & Inline Style**: Support for **bold**, colors, and mixed styles within table cells and paragraphs.
+- **QR Code Generation**: Native vector-based QR code generation (Optional).
+- **Watermarks**: Global text watermarks with customizable opacity, angle, and size.
 - **Dynamic Charts**: Generate beautiful Bar, Line, and Pie charts directly in your PDF (Optional).
 
 ## 📦 Installation
@@ -21,11 +22,15 @@ Add this to your `Cargo.toml`:
 mr-pdf = "0.1.0"
 ```
 
-To enable charting capabilities, use the `chart` feature:
+To enable extra capabilities, use the corresponding features:
 
 ```toml
 [dependencies]
-mr-pdf = { version = "0.1.0", features = ["chart"] }
+# Basic installation
+mr-pdf = "0.1.4"
+
+# Full installation (Charts + QR Code)
+mr-pdf = { version = "0.1.4", features = ["chart", "qrcode"] }
 ```
 
 ## 🛠️ Quick Start
@@ -131,13 +136,34 @@ pdf.table(|t| {
     // Enable Zebra Striping
     t.zebra(Color::Rgb(240, 240, 240)); // Light Gray
     
-    // Regular rows
+    // Feature: Rich Text & Individual Cell Styling
     t.row_builder(|r| {
-        r.cell("Spanned Cell").span(2); // Spans 2 columns horizontally
-        r.cell("Single Cell");
+        r.cell("Mix **Bold** and [#FF0000]Color[]").span(2);
+        r.cell("Yellow BG")
+         .bg_color(Color::Rgb(255, 255, 200))
+         .text_color(Color::Rgb(0, 0, 255));
     });
-    t.row(vec!["Row 2", "Data", "Note"]);
+
+    // Feature: QR Code inside Table
+    #[cfg(feature = "qrcode")]
+    t.row_builder(|r| {
+        r.cell("Scan this:");
+        r.cell_qr("https://github.com/supaatwi/mr_pdf").span(2);
+    });
 })?;
+```
+
+### Page Watermarks
+Set a global watermark that appears on every page of your document:
+
+```rust
+pdf.set_watermark(
+    "CONFIDENTIAL", // Text
+    60.0,           // Font size
+    Color::Rgb(200, 200, 200), // Color
+    0.3,            // Opacity
+    45.0            // Angle (Degrees)
+);
 ```
 
 ### Low-Memory Streaming Tables

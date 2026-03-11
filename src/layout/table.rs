@@ -71,6 +71,8 @@ pub enum Cell {
     Text(String),
     ImagePath(String),
     ImageBase64(String),
+    #[cfg(feature = "qrcode")]
+    QrCode(String),
 }
 
 /// Represents a single cell in a table row.
@@ -82,6 +84,9 @@ pub struct TableCell {
     pub align: Option<Align>,
     pub valign: Option<VAlign>,
     pub link: Option<String>,
+    pub bg_color: Option<Color>,
+    pub text_color: Option<Color>,
+    pub font_size: Option<f64>,
 }
 
 impl TableCell {
@@ -94,6 +99,9 @@ impl TableCell {
             align: None,
             valign: None,
             link: None,
+            bg_color: None,
+            text_color: None,
+            font_size: None,
         }
     }
 
@@ -106,6 +114,9 @@ impl TableCell {
             align: None,
             valign: None,
             link: None,
+            bg_color: None,
+            text_color: None,
+            font_size: None,
         }
     }
 
@@ -118,6 +129,25 @@ impl TableCell {
             align: None,
             valign: None,
             link: None,
+            bg_color: None,
+            text_color: None,
+            font_size: None,
+        }
+    }
+
+    /// Creates a QR code cell.
+    #[cfg(feature = "qrcode")]
+    pub fn qr(data: &str) -> Self {
+        Self {
+            content: Cell::QrCode(data.to_string()),
+            colspan: 1,
+            rowspan: 1,
+            align: None,
+            valign: None,
+            link: None,
+            bg_color: None,
+            text_color: None,
+            font_size: None,
         }
     }
 
@@ -150,6 +180,24 @@ impl TableCell {
         self.link = Some(url.to_string());
         self
     }
+
+    /// Sets an individual background color for this cell.
+    pub fn bg_color(mut self, color: Color) -> Self {
+        self.bg_color = Some(color);
+        self
+    }
+
+    /// Sets an individual text color for this cell.
+    pub fn text_color(mut self, color: Color) -> Self {
+        self.text_color = Some(color);
+        self
+    }
+
+    /// Sets an individual font size for this cell.
+    pub fn font_size(mut self, size: f64) -> Self {
+        self.font_size = Some(size);
+        self
+    }
 }
 
 impl From<&str> for TableCell {
@@ -167,6 +215,9 @@ impl From<String> for TableCell {
             align: None,
             valign: None,
             link: None,
+            bg_color: None,
+            text_color: None,
+            font_size: None,
         }
     }
 }
@@ -202,6 +253,13 @@ impl RowBuilder {
     /// Adds an image cell from Base64.
     pub fn cell_image_base64(&mut self, b64: &str) -> &mut Self {
         self.cells.push(TableCell::image_base64(b64));
+        self
+    }
+
+    /// Adds a QR code cell.
+    #[cfg(feature = "qrcode")]
+    pub fn cell_qr(&mut self, data: &str) -> &mut Self {
+        self.cells.push(TableCell::qr(data));
         self
     }
 
@@ -241,6 +299,30 @@ impl RowBuilder {
     pub fn link(&mut self, url: &str) -> &mut Self {
         if let Some(last) = self.cells.last_mut() {
             last.link = Some(url.to_string());
+        }
+        self
+    }
+
+    /// Sets the background color for the most recently added cell.
+    pub fn bg_color(&mut self, color: Color) -> &mut Self {
+        if let Some(last) = self.cells.last_mut() {
+            last.bg_color = Some(color);
+        }
+        self
+    }
+
+    /// Sets the text color for the most recently added cell.
+    pub fn text_color(&mut self, color: Color) -> &mut Self {
+        if let Some(last) = self.cells.last_mut() {
+            last.text_color = Some(color);
+        }
+        self
+    }
+
+    /// Sets the font size for the most recently added cell.
+    pub fn font_size(&mut self, size: f64) -> &mut Self {
+        if let Some(last) = self.cells.last_mut() {
+            last.font_size = Some(size);
         }
         self
     }
@@ -501,19 +583,6 @@ impl<'a, W: Write> StreamingTable<'a, W> {
         }
 
         let start_x = self.pdf.cursor_pos().0;
-        let row_bottom = self.top_y - h;
-
-        // Background / Zebra coloring
-        let mut final_bg = self.row_style.bg_color;
-        if final_bg.is_none()
-            && let Some(zc) = &self.zebra_color
-                && self.row_count % 2 == 1 {
-                    final_bg = Some(*zc);
-                }
-        if let Some(bg) = final_bg {
-            self.pdf.set_fill_color(bg)?;
-            self.pdf.fill_rect(start_x, row_bottom, self.total_table_w, h)?;
-        }
 
         for p in &placements {
             let x = start_x
@@ -524,6 +593,18 @@ impl<'a, W: Write> StreamingTable<'a, W> {
             let w = spanned_width(&self.resolved_widths, p.start_col, p.span_w, self.default_w);
 
             let config = self.column_configs.get(p.start_col).cloned().unwrap_or_default();
+
+            // Background / Zebra coloring for EACH cell
+            let mut cell_bg = p.cell.bg_color.or(self.row_style.bg_color);
+            if cell_bg.is_none()
+                && let Some(zc) = &self.zebra_color
+                    && self.row_count % 2 == 1 {
+                        cell_bg = Some(*zc);
+                    }
+            if let Some(bg) = cell_bg {
+                self.pdf.set_fill_color(bg)?;
+                self.pdf.fill_rect(x, bottom, w, h)?;
+            }
 
             draw_cell_content(
                 self.pdf,
@@ -623,89 +704,146 @@ pub struct Table {
     zebra_color: Option<Color>,
 }
 
-fn measure<W: Write>(pdf: &Pdf<W>, text: &str, font_size: f64) -> f64 {
-    match pdf.current_font {
+fn measure<W: Write>(pdf: &Pdf<W>, text: &str, font_size: f64, bold: bool) -> f64 {
+    let mut font_name = String::new();
+    if let Some(fid) = pdf.current_font {
+        font_name = pdf.font_manager.get_font(fid).name.clone();
+    }
+
+    let target_font = if bold && !font_name.is_empty() {
+        let bold_name = format!("{}-Bold", font_name);
+        pdf.font_manager.get_font_id(&bold_name).or(pdf.current_font)
+    } else {
+        pdf.current_font
+    };
+
+    match target_font {
         Some(fid) => pdf.font_manager.string_width(fid, text, font_size),
         None => text.len() as f64 * font_size * 0.52,
     }
 }
 
-fn wrap<W: Write>(pdf: &Pdf<W>, text: &str, col_width: f64, font_size: f64) -> Vec<String> {
+#[derive(Debug, Clone)]
+struct TextSegment {
+    text: String,
+    bold: bool,
+    color: Option<Color>,
+}
+
+fn parse_rich_text(text: &str) -> Vec<TextSegment> {
+    let mut segments = Vec::new();
+    let mut current_pos = 0;
+    
+    while current_pos < text.len() {
+        if text[current_pos..].starts_with("**") {
+            let start = current_pos + 2;
+            if let Some(end_offset) = text[start..].find("**") {
+                let bold_text = &text[start..start + end_offset];
+                segments.push(TextSegment {
+                    text: bold_text.to_string(),
+                    bold: true,
+                    color: None,
+                });
+                current_pos = start + end_offset + 2;
+                continue;
+            }
+        }
+        
+        // Handle [color:#hex] or [#hex] color syntax (optional but premium)
+        if text[current_pos..].starts_with("[#") {
+            if let Some(end_bracket) = text[current_pos..].find(']') {
+                let hex = &text[current_pos + 2..current_pos + end_bracket];
+                if let Some(end_tag) = text[current_pos + end_bracket + 1..].find("[]") {
+                    let colored_text = &text[current_pos + end_bracket + 1..current_pos + end_bracket + 1 + end_tag];
+                    
+                    // Simple hex parser (e.g. FF0000)
+                    if hex.len() == 6 {
+                        if let (Ok(r), Ok(g), Ok(b)) = (
+                            u8::from_str_radix(&hex[0..2], 16),
+                            u8::from_str_radix(&hex[2..4], 16),
+                            u8::from_str_radix(&hex[4..6], 16)
+                        ) {
+                            segments.push(TextSegment {
+                                text: colored_text.to_string(),
+                                bold: false,
+                                color: Some(Color::Rgb(r, g, b)),
+                            });
+                            current_pos += end_bracket + 1 + end_tag + 2;
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+
+        let next_bold = text[current_pos..].find("**").unwrap_or(text.len() - current_pos);
+        let next_color = text[current_pos..].find("[#").unwrap_or(text.len() - current_pos);
+        let next_tag = next_bold.min(next_color);
+        
+        if next_tag > 0 {
+            segments.push(TextSegment {
+                text: text[current_pos..current_pos + next_tag].to_string(),
+                bold: false,
+                color: None,
+            });
+            current_pos += next_tag;
+        } else {
+            // Should not happen with logic above, but for safety:
+            current_pos += 1;
+        }
+    }
+    
+    if segments.is_empty() && !text.is_empty() {
+        segments.push(TextSegment { text: text.to_string(), bold: false, color: None });
+    }
+    segments
+}
+
+fn wrap<W: Write>(pdf: &Pdf<W>, text: &str, col_width: f64, font_size: f64) -> Vec<Vec<TextSegment>> {
     let available = (col_width - CELL_PADDING * 2.0).max(1.0);
-    let mut lines: Vec<String> = Vec::new();
+    let mut lines: Vec<Vec<TextSegment>> = Vec::new();
 
     for explicit_line in text.split('\n') {
-        let mut current = String::new();
-        let words: Vec<&str> = explicit_line.split_whitespace().collect();
-
-        if words.is_empty() {
-            lines.push(String::new());
-            continue;
-        }
-
-        for word in words {
-            // First check if the word ITSELF is too long to fit on a line
-            let mut word_parts = Vec::new();
-            if measure(pdf, word, font_size) > available {
-                // Try to break at '/' or '-'
-                let mut p_curr = String::new();
-                for ch in word.chars() {
-                    let cand = format!("{}{}", p_curr, ch);
-                    if measure(pdf, &cand, font_size) > available && !p_curr.is_empty() {
-                        // Overflow! See if we can break here
-                        word_parts.push(p_curr);
-                        p_curr = ch.to_string();
-                    } else if ch == '/' || ch == '-' {
-                        word_parts.push(cand);
-                        p_curr = String::new();
-                    } else {
-                        p_curr = cand;
-                    }
-                }
-                if !p_curr.is_empty() {
-                    word_parts.push(p_curr);
-                }
-            } else {
-                word_parts.push(word.to_string());
-            }
-
-            for (idx, part) in word_parts.iter().enumerate() {
-                let candidate = if current.is_empty() {
-                    part.clone()
-                } else if idx == 0 {
-                    // It's the first part of a NEW word, so it needs a space
-                    format!("{} {}", current, part)
-                } else {
-                    // It's a subsequent part of the SAME broken word, NO space
-                    format!("{}{}", current, part)
-                };
+        let mut current_line: Vec<TextSegment> = Vec::new();
+        let mut current_line_width = 0.0;
+        
+        let segments = parse_rich_text(explicit_line);
+        
+        for seg in segments {
+            let words: Vec<&str> = seg.text.split_inclusive(char::is_whitespace).collect();
+            
+            for word in words {
+                let word_w = measure(pdf, word, font_size, seg.bold);
                 
-                if measure(pdf, &candidate, font_size) > available && !current.is_empty() {
-                    if idx == 0 {
-                        // Overflow on a new word, push the old line
-                        lines.push(current);
-                        current = part.clone();
-                    } else {
-                        // Overflow while building the same broken word,
-                        // this means the piece before the '-' or '/' plus `current` 
-                        // fits, but adding this next piece exceeds the limit.
-                        // So push what we have.
-                        lines.push(current);
-                        current = part.clone();
-                    }
-                } else {
-                    current = candidate;
+                if current_line_width + word_w > available && !current_line.is_empty() {
+                    lines.push(current_line);
+                    current_line = Vec::new();
+                    current_line_width = 0.0;
                 }
+                
+                // Add word to current line, merging with last segment if style matches
+                if let Some(last) = current_line.last_mut() 
+                    && last.bold == seg.bold 
+                    && last.color == seg.color {
+                        last.text.push_str(word);
+                } else {
+                    current_line.push(TextSegment {
+                        text: word.to_string(),
+                        bold: seg.bold,
+                        color: seg.color,
+                    });
+                }
+                current_line_width += word_w;
             }
         }
-        if !current.is_empty() {
-            lines.push(current);
+        
+        if !current_line.is_empty() {
+            lines.push(current_line);
+        } else if lines.is_empty() || explicit_line.is_empty() {
+            lines.push(vec![TextSegment { text: String::new(), bold: false, color: None }]);
         }
     }
 
-    if lines.is_empty() {
-        lines.push(String::new());
-    }
     lines
 }
 
@@ -773,13 +911,16 @@ fn process_rows<'a, W: Write>(
     for p in &placements {
         if p.span_h == 1 {
             let w = spanned_width(resolved_widths, p.start_col, p.span_w, default_w);
-            let lines = match &p.cell.content {
-                Cell::Text(t) => wrap(pdf, t, w, font_size).len(),
-                _ => 1,
+            let cell_font_size = p.cell.font_size.unwrap_or(font_size);
+            let needed_h = match &p.cell.content {
+                Cell::Text(t) => {
+                    let lines = wrap(pdf, t, w, cell_font_size);
+                    lines.len() as f64 * (cell_font_size * 1.3) + CELL_PADDING * 2.0
+                }
+                _ => cell_font_size * 1.3 + CELL_PADDING * 2.0,
             };
-            let h = lines as f64 * (font_size * 1.3) + CELL_PADDING * 2.0;
-            if h > row_heights[p.start_row] {
-                row_heights[p.start_row] = h;
+            if needed_h > row_heights[p.start_row] {
+                row_heights[p.start_row] = needed_h;
             }
         }
     }
@@ -787,11 +928,14 @@ fn process_rows<'a, W: Write>(
     for p in &placements {
         if p.span_h > 1 {
             let w = spanned_width(resolved_widths, p.start_col, p.span_w, default_w);
-            let lines = match &p.cell.content {
-                Cell::Text(t) => wrap(pdf, t, w, font_size).len(),
-                _ => 1,
+            let cell_font_size = p.cell.font_size.unwrap_or(font_size);
+            let needed_h = match &p.cell.content {
+                Cell::Text(t) => {
+                    let lines = wrap(pdf, t, w, cell_font_size);
+                    lines.len() as f64 * (cell_font_size * 1.3) + CELL_PADDING * 2.0
+                }
+                _ => cell_font_size * 1.3 + CELL_PADDING * 2.0,
             };
-            let needed_h = lines as f64 * (font_size * 1.3) + CELL_PADDING * 2.0;
             let current_h: f64 = (0..p.span_h).map(|i| row_heights[p.start_row + i]).sum();
 
             if needed_h > current_h {
@@ -818,11 +962,18 @@ fn draw_cell_content<W: Write>(
     is_header: bool,
     border_style: TableBorderStyle,
 ) -> std::io::Result<()> {
+    let cell_font_size = tc.font_size.unwrap_or(style.font_size);
     let top_y = bottom_y + h;
-    let line_height = style.font_size * 1.3;
+    let line_height = cell_font_size * 1.3;
 
     let align = tc.align.unwrap_or(config.align);
     let valign = tc.valign.unwrap_or(config.valign);
+    
+    // Individual background color can override common styles/zebra
+    if let Some(bg) = tc.bg_color {
+        pdf.set_fill_color(bg)?;
+        pdf.fill_rect(x, bottom_y, w, h)?;
+    }
 
     pdf.set_stroke_color(Color::Rgb(0, 0, 0))?;
     match border_style {
@@ -842,7 +993,7 @@ fn draw_cell_content<W: Write>(
 
     match &tc.content {
         Cell::Text(text) => {
-            let lines = wrap(pdf, text, w, style.font_size);
+            let lines = wrap(pdf, text, w, cell_font_size);
             let total_text_h = lines.len() as f64 * line_height;
             let v_shift = match valign {
                 VAlign::Top => 0.0,
@@ -850,48 +1001,68 @@ fn draw_cell_content<W: Write>(
                 VAlign::Bottom => (h - 2.0 * CELL_PADDING - total_text_h).max(0.0),
             };
 
-            let baseline_adj = style.font_size * 0.2;
+            let baseline_adj = cell_font_size * 0.2;
             let mut current_y = top_y - CELL_PADDING - v_shift - line_height + baseline_adj;
 
-            if let Some(text_color) = &style.text_color {
-                pdf.set_fill_color(*text_color)?;
-            } else {
-                pdf.set_fill_color(Color::Rgb(0, 0, 0))?;
-            }
+            let final_text_color = tc.text_color.or(style.text_color).unwrap_or(Color::Rgb(0, 0, 0));
+            pdf.set_fill_color(final_text_color)?;
 
             for line in lines {
-                let line_w = measure(pdf, &line, style.font_size);
+                let mut line_w = 0.0;
+                for seg in &line {
+                    line_w += measure(pdf, &seg.text, cell_font_size, seg.bold);
+                }
+
                 let h_shift = match align {
                     Align::Left => 0.0,
                     Align::Center => (w - 2.0 * CELL_PADDING - line_w).max(0.0) / 2.0,
                     Align::Right => (w - 2.0 * CELL_PADDING - line_w).max(0.0),
                 };
 
-                let tx = x + CELL_PADDING + h_shift;
+                let mut current_x = x + CELL_PADDING + h_shift;
 
-                match pdf.current_font {
-                    Some(fid) => {
-                        let encoded = pdf.font_manager.encode_text(fid, &line);
-                        let s = pdf.get_stream();
-                        s.push_str("BT\n");
-                        s.push_str(&format!("/F{} {:.1} Tf\n", fid.0, style.font_size));
-                        s.push_str(&format!("{:.2} {:.2} Td\n", tx, current_y));
-                        s.push_str(&format!("{} Tj\n", encoded));
-                        s.push_str("ET\n");
+                for seg in &line {
+                    let seg_w = measure(pdf, &seg.text, cell_font_size, seg.bold);
+                    let seg_color = seg.color.or(tc.text_color).or(style.text_color).unwrap_or(Color::Rgb(0, 0, 0));
+                    pdf.set_fill_color(seg_color)?;
+
+                    let mut font_name = String::new();
+                    if let Some(fid) = pdf.current_font {
+                        font_name = pdf.font_manager.get_font(fid).name.clone();
                     }
-                    None => {
-                        let escaped = escape_pdf_str(&line);
-                        let s = pdf.get_stream();
-                        s.push_str("BT\n");
-                        s.push_str(&format!("/FBuiltin {:.1} Tf\n", style.font_size));
-                        s.push_str(&format!("{:.2} {:.2} Td\n", tx, current_y));
-                        s.push_str(&format!("({}) Tj\n", escaped));
-                        s.push_str("ET\n");
+
+                    let target_font = if seg.bold && !font_name.is_empty() {
+                        let bold_name = format!("{}-Bold", font_name);
+                        pdf.font_manager.get_font_id(&bold_name).or(pdf.current_font)
+                    } else {
+                        pdf.current_font
+                    };
+
+                    match target_font {
+                        Some(fid) => {
+                            let encoded = pdf.font_manager.encode_text(fid, &seg.text);
+                            let s = pdf.get_stream();
+                            s.push_str("BT\n");
+                            s.push_str(&format!("/F{} {:.1} Tf\n", fid.0, cell_font_size));
+                            s.push_str(&format!("{:.2} {:.2} Td\n", current_x, current_y));
+                            s.push_str(&format!("{} Tj\n", encoded));
+                            s.push_str("ET\n");
+                        }
+                        None => {
+                            let escaped = escape_pdf_str(&seg.text);
+                            let s = pdf.get_stream();
+                            s.push_str("BT\n");
+                            s.push_str(&format!("/FBuiltin {:.1} Tf\n", cell_font_size));
+                            s.push_str(&format!("{:.2} {:.2} Td\n", current_x, current_y));
+                            s.push_str(&format!("({}) Tj\n", escaped));
+                            s.push_str("ET\n");
+                        }
                     }
+                    current_x += seg_w;
                 }
 
                 if let Some(url) = &tc.link {
-                    pdf.add_link((tx, current_y, tx + line_w, current_y + style.font_size), url);
+                    pdf.add_link((x + CELL_PADDING + h_shift, current_y, x + CELL_PADDING + h_shift + line_w, current_y + cell_font_size), url);
                 }
 
                 current_y -= line_height;
@@ -917,6 +1088,16 @@ fn draw_cell_content<W: Write>(
                     .position(x + pad, bottom_y + pad)
                     .size(iw, ih)
                     .render()?;
+            }
+        }
+        #[cfg(feature = "qrcode")]
+        Cell::QrCode(data) => {
+            let pad = 3.0;
+            let size = w.min(h) - pad * 2.0;
+            if size > 0.0 {
+                let qx = x + (w - size) / 2.0;
+                let qy = bottom_y + (h - size) / 2.0;
+                pdf.render_qr(data, qx, qy, size)?;
             }
         }
     }
@@ -1032,19 +1213,6 @@ impl Table {
             }
 
             let start_x = pdf.cursor_pos().0;
-            let row_bottom = top_y - h;
-
-            let mut final_bg = self.row_style.bg_color;
-            if final_bg.is_none()
-                && let Some(zc) = &self.zebra_color
-                    && r % 2 == 1 {
-                        final_bg = Some(*zc);
-                    }
-
-            if let Some(bg) = final_bg {
-                pdf.set_fill_color(bg)?;
-                pdf.fill_rect(start_x, row_bottom, total_table_w, h)?;
-            }
 
             for p in &body_placements {
                 if p.start_row == r {
@@ -1059,6 +1227,19 @@ impl Table {
                     let w = spanned_width(&resolved_widths, p.start_col, p.span_w, default_w);
 
                     let config = self.column_configs.get(p.start_col).cloned().unwrap_or_default();
+                    
+                    // Background coloring for EACH cell
+                    let mut cell_bg = p.cell.bg_color.or(self.row_style.bg_color);
+                    if cell_bg.is_none()
+                        && let Some(zc) = &self.zebra_color
+                            && r % 2 == 1 {
+                                cell_bg = Some(*zc);
+                            }
+
+                    if let Some(bg) = cell_bg {
+                        pdf.set_fill_color(bg)?;
+                        pdf.fill_rect(x, bottom, w, cell_h)?;
+                    }
 
                     draw_cell_content(
                         pdf,

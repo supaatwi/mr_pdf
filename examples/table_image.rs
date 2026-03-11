@@ -23,8 +23,8 @@ fn main() -> std::io::Result<()> {
 
         // 1. Image from Path
         t.row_builder(|r| {
-            r.cell("Logo from path (logo.jpg)");
-            r.cell_image("logo.jpg");
+            r.cell("Logo from path (demo.jpg)");
+            r.cell_image("demo.jpg");
         });
 
         // 2. Image from Base64
