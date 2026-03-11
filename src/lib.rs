@@ -976,6 +976,13 @@ impl<W: Write> Pdf<W> {
         Ok(())
     }
 
+    /// Sets the line width for strokes.
+    pub fn set_line_width(&mut self, width: f64) -> std::io::Result<()> {
+        self.ensure_page()?;
+        self.current_stream.push_str(&format!("{:.2} w\n", width));
+        Ok(())
+    }
+
     /// Returns the current page content stream.
     pub fn get_stream(&mut self) -> &mut String {
         &mut self.current_stream

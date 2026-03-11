@@ -12,7 +12,9 @@ impl SvgRenderer {
         w: Option<f64>,
         h: Option<f64>,
     ) -> std::io::Result<()> {
-        let content = fs::read_to_string(path)?;
+        let content = fs::read_to_string(path).map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::NotFound, format!("SVG file not found: {}", path))
+        })?;
         let doc = Document::parse(&content)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
@@ -44,50 +46,83 @@ impl SvgRenderer {
 
         for node in doc.descendants() {
             if node.is_element() {
-                let fill = node.attribute("fill").unwrap_or("#000000");
-                if fill == "none" {
-                    continue;
-                }
-                let color = parse_color(fill);
+                let tag = node.tag_name().name();
+                if tag == "svg" || tag == "g" || tag == "defs" { continue; }
 
-                match node.tag_name().name() {
+                let fill = find_attribute(node, "fill").unwrap_or("#000000");
+                let stroke = find_attribute(node, "stroke").unwrap_or("none");
+                let stroke_width = find_attribute(node, "stroke-width")
+                    .and_then(|s| s.parse::<f64>().ok())
+                    .unwrap_or(1.0);
+
+                if fill == "none" && stroke == "none" { continue; }
+
+                match tag {
                     "rect" => {
-                        let rx = (node.attribute("x").unwrap_or("0").parse().unwrap_or(0.0)
-                            - min_x)
-                            * scale;
-                        let ry = (node.attribute("y").unwrap_or("0").parse().unwrap_or(0.0)
-                            - min_y)
-                            * scale;
-                        let rw = node
-                            .attribute("width")
-                            .unwrap_or("0")
-                            .parse()
-                            .unwrap_or(0.0)
-                            * scale;
-                        let rh = node
-                            .attribute("height")
-                            .unwrap_or("0")
-                            .parse()
-                            .unwrap_or(0.0)
-                            * scale;
-                        pdf.set_fill_color(color)?;
-                        pdf.fill_rect(start_x + rx, base_y - ry - rh, rw, rh)?;
+                        let rx = (node.attribute("x").unwrap_or("0").parse().unwrap_or(0.0) - min_x) * scale;
+                        let ry = (node.attribute("y").unwrap_or("0").parse().unwrap_or(0.0) - min_y) * scale;
+                        let rw = node.attribute("width").unwrap_or("0").parse().unwrap_or(0.0) * scale;
+                        let rh = node.attribute("height").unwrap_or("0").parse().unwrap_or(0.0) * scale;
+                        
+                        pdf.ensure_page()?;
+                        if fill != "none" { pdf.set_fill_color(parse_color(fill))?; }
+                        if stroke != "none" { 
+                            pdf.set_stroke_color(parse_color(stroke))?; 
+                            pdf.set_line_width(stroke_width * scale)?;
+                        }
+
+                        let stream = pdf.get_stream();
+                        stream.push_str("q\n");
+                        stream.push_str(&format!("{:.2} {:.2} {:.2} {:.2} re ", start_x + rx, base_y - ry - rh, rw, rh));
+                        let op = match (fill != "none", stroke != "none") {
+                            (true, true) => "B\n",
+                            (true, false) => "f\n",
+                            (false, true) => "S\n",
+                            _ => "n\n",
+                        };
+                        stream.push_str(op);
+                        stream.push_str("Q\n");
                     }
                     "circle" => {
-                        let cx = (node.attribute("cx").unwrap_or("0").parse().unwrap_or(0.0)
-                            - min_x)
-                            * scale;
-                        let cy = (node.attribute("cy").unwrap_or("0").parse().unwrap_or(0.0)
-                            - min_y)
-                            * scale;
+                        let cx = (node.attribute("cx").unwrap_or("0").parse().unwrap_or(0.0) - min_x) * scale;
+                        let cy = (node.attribute("cy").unwrap_or("0").parse().unwrap_or(0.0) - min_y) * scale;
                         let r = node.attribute("r").unwrap_or("0").parse().unwrap_or(0.0) * scale;
-                        pdf.set_fill_color(color)?;
-                        pdf.fill_circle(start_x + cx, base_y - cy, r)?;
+                        
+                        pdf.ensure_page()?;
+                        if fill != "none" { pdf.set_fill_color(parse_color(fill))?; }
+                        if stroke != "none" { 
+                            pdf.set_stroke_color(parse_color(stroke))?; 
+                            pdf.set_line_width(stroke_width * scale)?;
+                        }
+                        
+                        pdf.get_stream().push_str("q\n");
+                        let op = match (fill != "none", stroke != "none") {
+                            (true, true) => "B",
+                            (true, false) => "f",
+                            (false, true) => "S",
+                            _ => "n",
+                        };
+                        pdf.draw_circle_op(start_x + cx, base_y - cy, r, op)?;
+                        pdf.get_stream().push_str("Q\n");
                     }
                     "path" => {
                         if let Some(d) = node.attribute("d") {
-                            pdf.set_fill_color(color)?;
-                            render_path(pdf, d, start_x, base_y, scale, min_x, min_y)?;
+                            pdf.ensure_page()?;
+                            if fill != "none" { pdf.set_fill_color(parse_color(fill))?; }
+                            if stroke != "none" { 
+                                pdf.set_stroke_color(parse_color(stroke))?; 
+                                pdf.set_line_width(stroke_width * scale)?;
+                            }
+                            
+                            pdf.get_stream().push_str("q\n");
+                            let op = match (fill != "none", stroke != "none") {
+                                (true, true) => "B",
+                                (true, false) => "f",
+                                (false, true) => "S",
+                                _ => "n",
+                            };
+                            render_path(pdf, d, start_x, base_y, scale, min_x, min_y, op)?;
+                            pdf.get_stream().push_str("Q\n");
                         }
                     }
                     _ => {}
@@ -98,7 +133,27 @@ impl SvgRenderer {
     }
 }
 
+fn find_attribute<'a>(node: roxmltree::Node<'a, 'a>, name: &str) -> Option<&'a str> {
+    if let Some(val) = node.attribute(name) {
+        return Some(val);
+    }
+    // Check style
+    if let Some(style) = node.attribute("style") {
+        for part in style.split(';') {
+            let mut kv = part.split(':');
+            if let Some(k) = kv.next() {
+                if k.trim() == name {
+                    return kv.next().map(|v| v.trim());
+                }
+            }
+        }
+    }
+    // Inheritance
+    node.parent().and_then(|p| if p.is_element() { find_attribute(p, name) } else { None })
+}
+
 fn parse_color(hex: &str) -> Color {
+    let hex = hex.trim();
     if hex.starts_with('#') {
         let h = hex.trim_start_matches('#');
         if h.len() == 6 {
@@ -112,7 +167,12 @@ fn parse_color(hex: &str) -> Color {
             let b = u8::from_str_radix(&h[2..3], 16).unwrap_or(0) * 17;
             return Color::Rgb(r, g, b);
         }
-    }
+    } else if hex == "red" { return Color::Rgb(255, 0, 0); }
+    else if hex == "green" { return Color::Rgb(0, 255, 0); }
+    else if hex == "blue" { return Color::Rgb(0, 0, 255); }
+    else if hex == "white" { return Color::Rgb(255, 255, 255); }
+    else if hex == "black" { return Color::Rgb(0, 0, 0); }
+    
     Color::Rgb(0, 0, 0)
 }
 
@@ -124,39 +184,42 @@ fn render_path<W: Write>(
     scale: f64,
     min_x: f64,
     min_y: f64,
+    op: &str,
 ) -> std::io::Result<()> {
     let mut tokens = Vec::new();
     let mut current = String::new();
 
-    for c in d.chars() {
-        if c.is_alphabetic() {
-            if !current.is_empty() {
-                tokens.push(current.clone());
-                current.clear();
-            }
+    // Robust tokenization
+    let chars: Vec<char> = d.chars().collect();
+    let mut j = 0;
+    while j < chars.len() {
+        let c = chars[j];
+        if c.is_alphabetic() && c != 'e' && c != 'E' {
+            if !current.is_empty() { tokens.push(current.clone()); current.clear(); }
             tokens.push(c.to_string());
         } else if c.is_whitespace() || c == ',' {
-            if !current.is_empty() {
-                tokens.push(current.clone());
-                current.clear();
-            }
+            if !current.is_empty() { tokens.push(current.clone()); current.clear(); }
         } else if c == '-' {
-            if !current.is_empty() {
+            let prev_is_e = !current.is_empty() && (current.ends_with('e') || current.ends_with('E'));
+            if !current.is_empty() && !prev_is_e {
                 tokens.push(current.clone());
+                current = "-".to_string();
+            } else {
+                current.push('-');
             }
-            current = "-".to_string();
         } else {
             current.push(c);
         }
+        j += 1;
     }
-    if !current.is_empty() {
-        tokens.push(current);
-    }
+    if !current.is_empty() { tokens.push(current); }
 
     let stream = pdf.get_stream();
     let mut i = 0;
     let mut last_x = 0.0;
     let mut last_y = 0.0;
+    let mut last_cp_x = 0.0;
+    let mut last_cp_y = 0.0;
     let mut subpath_start_x = 0.0;
     let mut subpath_start_y = 0.0;
     let mut current_cmd = ' ';
@@ -174,20 +237,13 @@ fn render_path<W: Write>(
                 let is_rel = current_cmd == 'm';
                 let x = tokens[i].parse::<f64>().unwrap_or(0.0);
                 let y = tokens[i + 1].parse::<f64>().unwrap_or(0.0);
-                let (nx, ny) = if is_rel {
-                    (last_x + x, last_y + y)
-                } else {
-                    (x, y)
-                };
-
+                let (nx, ny) = if is_rel { (last_x + x, last_y + y) } else { (x, y) };
                 let px = (nx - min_x) * scale;
                 let py = (ny - min_y) * scale;
                 stream.push_str(&format!("{:.2} {:.2} m\n", offset_x + px, offset_y - py));
-
-                last_x = nx;
-                last_y = ny;
-                subpath_start_x = nx;
-                subpath_start_y = ny;
+                last_x = nx; last_y = ny;
+                subpath_start_x = nx; subpath_start_y = ny;
+                last_cp_x = nx; last_cp_y = ny;
                 i += 2;
                 has_path = true;
                 current_cmd = if is_rel { 'l' } else { 'L' };
@@ -196,105 +252,125 @@ fn render_path<W: Write>(
                 let is_rel = current_cmd == 'l';
                 let x = tokens[i].parse::<f64>().unwrap_or(0.0);
                 let y = tokens[i + 1].parse::<f64>().unwrap_or(0.0);
-                let (nx, ny) = if is_rel {
-                    (last_x + x, last_y + y)
-                } else {
-                    (x, y)
-                };
-
+                let (nx, ny) = if is_rel { (last_x + x, last_y + y) } else { (x, y) };
                 let px = (nx - min_x) * scale;
                 let py = (ny - min_y) * scale;
                 stream.push_str(&format!("{:.2} {:.2} l\n", offset_x + px, offset_y - py));
-                last_x = nx;
-                last_y = ny;
+                last_x = nx; last_y = ny; last_cp_x = nx; last_cp_y = ny;
                 i += 2;
             }
             'H' | 'h' => {
-                let is_rel = current_cmd == 'h';
                 let x = tokens[i].parse::<f64>().unwrap_or(0.0);
-                let nx = if is_rel { last_x + x } else { x };
+                let nx = if current_cmd == 'h' { last_x + x } else { x };
                 let px = (nx - min_x) * scale;
                 let py = (last_y - min_y) * scale;
                 stream.push_str(&format!("{:.2} {:.2} l\n", offset_x + px, offset_y - py));
-                last_x = nx;
+                last_x = nx; last_cp_x = nx; last_cp_y = last_y;
                 i += 1;
             }
             'V' | 'v' => {
-                let is_rel = current_cmd == 'v';
                 let y = tokens[i].parse::<f64>().unwrap_or(0.0);
-                let ny = if is_rel { last_y + y } else { y };
+                let ny = if current_cmd == 'v' { last_y + y } else { y };
                 let px = (last_x - min_x) * scale;
                 let py = (ny - min_y) * scale;
                 stream.push_str(&format!("{:.2} {:.2} l\n", offset_x + px, offset_y - py));
-                last_y = ny;
+                last_y = ny; last_cp_x = last_x; last_cp_y = ny;
                 i += 1;
             }
             'C' | 'c' => {
                 let is_rel = current_cmd == 'c';
                 let c1x = tokens[i].parse::<f64>().unwrap_or(0.0);
-                let c1y = tokens[i + 1].parse::<f64>().unwrap_or(0.0);
-                let c2x = tokens[i + 2].parse::<f64>().unwrap_or(0.0);
-                let c2y = tokens[i + 3].parse::<f64>().unwrap_or(0.0);
-                let x = tokens[i + 4].parse::<f64>().unwrap_or(0.0);
-                let y = tokens[i + 5].parse::<f64>().unwrap_or(0.0);
-
-                let (f1x, f1y, f2x, f2y, fx, fy) = if is_rel {
-                    (
-                        last_x + c1x,
-                        last_y + c1y,
-                        last_x + c2x,
-                        last_y + c2y,
-                        last_x + x,
-                        last_y + y,
-                    )
+                let c1y = tokens[i+1].parse::<f64>().unwrap_or(0.0);
+                let c2x = tokens[i+2].parse::<f64>().unwrap_or(0.0);
+                let c2y = tokens[i+3].parse::<f64>().unwrap_or(0.0);
+                let ex = tokens[i+4].parse::<f64>().unwrap_or(0.0);
+                let ey = tokens[i+5].parse::<f64>().unwrap_or(0.0);
+                let (p1x, p1y, p2x, p2y, nx, ny) = if is_rel {
+                    (last_x + c1x, last_y + c1y, last_x + c2x, last_y + c2y, last_x + ex, last_y + ey)
                 } else {
-                    (c1x, c1y, c2x, c2y, x, y)
+                    (c1x, c1y, c2x, c2y, ex, ey)
                 };
-
-                let p1x = (f1x - min_x) * scale;
-                let p1y = (f1y - min_y) * scale;
-                let p2x = (f2x - min_x) * scale;
-                let p2y = (f2y - min_y) * scale;
-                let px = (fx - min_x) * scale;
-                let py = (fy - min_y) * scale;
-
-                stream.push_str(&format!(
-                    "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
-                    offset_x + p1x,
-                    offset_y - p1y,
-                    offset_x + p2x,
-                    offset_y - p2y,
-                    offset_x + px,
-                    offset_y - py
-                ));
-                last_x = fx;
-                last_y = fy;
+                let sx = (p1x - min_x) * scale; let sy = (p1y - min_y) * scale;
+                let tx = (p2x - min_x) * scale; let ty = (p2y - min_y) * scale;
+                let ux = (nx - min_x) * scale; let uy = (ny - min_y) * scale;
+                stream.push_str(&format!("{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
+                    offset_x + sx, offset_y - sy, offset_x + tx, offset_y - ty, offset_x + ux, offset_y - uy));
+                last_x = nx; last_y = ny; last_cp_x = p2x; last_cp_y = p2y;
                 i += 6;
             }
-            'S' | 's' | 'Q' | 'q' | 'T' | 't' | 'A' | 'a' => {
-                // Ignore for now but skip tokens to prevent infinite loop or corruption
-                let count = match current_cmd.to_ascii_uppercase() {
-                    'S' | 'Q' => 4,
-                    'T' => 2,
-                    'A' => 7,
-                    _ => 0,
-                };
-                i += count;
+            'S' | 's' => {
+                let is_rel = current_cmd == 's';
+                let c2x = tokens[i].parse::<f64>().unwrap_or(0.0);
+                let c2y = tokens[i+1].parse::<f64>().unwrap_or(0.0);
+                let ex = tokens[i+2].parse::<f64>().unwrap_or(0.0);
+                let ey = tokens[i+3].parse::<f64>().unwrap_or(0.0);
+                let (p2x, p2y, nx, ny) = if is_rel { (last_x + c2x, last_y + c2y, last_x + ex, last_y + ey) } else { (c2x, c2y, ex, ey) };
+                let p1x = 2.0 * last_x - last_cp_x;
+                let p1y = 2.0 * last_y - last_cp_y;
+                let sx = (p1x - min_x) * scale; let sy = (p1y - min_y) * scale;
+                let tx = (p2x - min_x) * scale; let ty = (p2y - min_y) * scale;
+                let ux = (nx - min_x) * scale; let uy = (ny - min_y) * scale;
+                stream.push_str(&format!("{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
+                    offset_x + sx, offset_y - sy, offset_x + tx, offset_y - ty, offset_x + ux, offset_y - uy));
+                last_x = nx; last_y = ny; last_cp_x = p2x; last_cp_y = p2y;
+                i += 4;
+            }
+            'Q' | 'q' => {
+                let is_rel = current_cmd == 'q';
+                let c1x = tokens[i].parse::<f64>().unwrap_or(0.0);
+                let c1y = tokens[i+1].parse::<f64>().unwrap_or(0.0);
+                let ex = tokens[i+2].parse::<f64>().unwrap_or(0.0);
+                let ey = tokens[i+3].parse::<f64>().unwrap_or(0.0);
+                let (cx, cy, nx, ny) = if is_rel { (last_x + c1x, last_y + c1y, last_x + ex, last_y + ey) } else { (c1x, c1y, ex, ey) };
+                let qp1x = last_x + 2.0/3.0 * (cx - last_x);
+                let qp1y = last_y + 2.0/3.0 * (cy - last_y);
+                let qp2x = nx + 2.0/3.0 * (cx - nx);
+                let qp2y = ny + 2.0/3.0 * (cy - ny);
+                let p1x = (qp1x - min_x) * scale; let p1y = (qp1y - min_y) * scale;
+                let p2x = (qp2x - min_x) * scale; let p2y = (qp2y - min_y) * scale;
+                let ux = (nx - min_x) * scale; let uy = (ny - min_y) * scale;
+                stream.push_str(&format!("{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
+                    offset_x + p1x, offset_y - p1y, offset_x + p2x, offset_y - p2y, offset_x + ux, offset_y - uy));
+                last_x = nx; last_y = ny; last_cp_x = cx; last_cp_y = cy;
+                i += 4;
             }
             'Z' | 'z' => {
                 stream.push_str("h\n");
-                last_x = subpath_start_x;
-                last_y = subpath_start_y;
-                i += 0;
+                last_x = subpath_start_x; last_y = subpath_start_y;
+                last_cp_x = last_x; last_cp_y = last_y;
                 current_cmd = ' ';
             }
-            _ => {
-                i += 1;
+            'A' | 'a' => {
+                let is_rel = current_cmd == 'a';
+                let rx = tokens[i].parse::<f64>().unwrap_or(0.0).abs();
+                let ry = tokens[i+1].parse::<f64>().unwrap_or(0.0).abs();
+                let ex = tokens[i+5].parse::<f64>().unwrap_or(0.0);
+                let ey = tokens[i+6].parse::<f64>().unwrap_or(0.0);
+                let (nx, ny) = if is_rel { (last_x + ex, last_y + ey) } else { (ex, ey) };
+                
+                // Smart approximation: midpoint of arc if it's a large change
+                let mid_x = (last_x + nx) / 2.0;
+                let mut mid_y = (last_y + ny) / 2.0;
+                
+                if rx > 0.0 && ry > 0.0 {
+                    let dx = (nx - last_x).abs();
+                    if dx < rx * 2.0 {
+                        let offset = (rx * rx - (dx/2.0)*(dx/2.0)).max(0.0).sqrt();
+                        mid_y = if ey > 0.0 { mid_y + offset } else { mid_y - offset };
+                    }
+                }
+
+                let px1 = (mid_x - min_x) * scale; let py1 = (mid_y - min_y) * scale;
+                let px2 = (nx - min_x) * scale; let py2 = (ny - min_y) * scale;
+                stream.push_str(&format!("{:.2} {:.2} l\n{:.2} {:.2} l\n", 
+                    offset_x + px1, offset_y - py1, offset_x + px2, offset_y - py2));
+                
+                last_x = nx; last_y = ny; last_cp_x = nx; last_cp_y = ny;
+                i += 7;
             }
+            _ => { i += 1; }
         }
     }
-    if has_path {
-        stream.push_str("f\n");
-    }
+    if has_path { stream.push_str(&format!(" {}\n", op)); }
     Ok(())
 }
