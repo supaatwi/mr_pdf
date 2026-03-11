@@ -48,6 +48,12 @@ fn main() -> std::io::Result<()> {
         .color(Color::Rgb(30, 144, 255)) // Dodger Blue
         .margin_bottom(20.0);
 
+    // Dynamic Text Box Margins
+    pdf.text("This paragraph is indented from the left edges and wrapped cleanly.")
+        .margin_left(50.0)
+        .margin_right(50.0)
+        .margin_bottom(15.0);
+
     // Create a Responsive Row
     pdf.row(|r| {
         r.col(50.0.pct(), |pdf| {
@@ -133,6 +139,50 @@ pdf.table(|t| {
     t.row(vec!["Row 2", "Data", "Note"]);
 })?;
 ```
+
+### Low-Memory Streaming Tables
+If you need to process thousands or even millions of rows from a database or stream, keeping them all in memory is inefficient. The `StreamingTable` API consumes only enough memory for a single row buffer and writes immediately to the PDF!
+
+```rust
+let mut builder = mr_pdf::TableBuilder::new();
+builder.widths(vec![50.0.pct(), 50.0.pct()])
+       .header(vec!["User ID", "Event Type"])
+       .repeat_header(true);
+
+let mut stream_table = builder.start(&mut pdf)?; // Renders the header!
+
+while let Some(data) = my_db_rx.recv().await {
+    stream_table.row(|r| {
+        r.cell(&data.user_id);
+        r.cell(&data.event_type);
+    })?; // Renders this row and frees memory instantly
+}
+// Drops map to table end automatically
+```
+
+### Writing Documents in Markdown
+You can use standard markdown syntax to rapidly compose large text blocks. MR-PDF automatically maps elements like Headings, Paragraphs, Lists, and Code blocks into beautifully laid-out PDF text blocks!
+
+```rust
+let markdown_text = "
+# MR-PDF Markdown
+
+This lets you quickly write **bold** and *italic* text concepts!
+- Support for Headings (Auto scalable sizes)
+- Support for Paragraph wrapping
+- Bullet lists
+
+```
+fn demo() {}
+```
+";
+
+pdf.markdown(markdown_text)
+   .size(12.0)
+   .font("MyRegisteredFont") // Use a specific font for the block
+   .render()?;
+```
+
 
 ## 🏎️ Performance Objectives
 

@@ -20,7 +20,7 @@ impl Image {
     /// Loads an image from a file path.
     pub fn load(name: &str, path: &str) -> std::io::Result<Self> {
         let bytes = fs::read(path)?;
-        let ext = path.split('.').last().unwrap_or("").to_lowercase();
+        let ext = path.split('.').next_back().unwrap_or("").to_lowercase();
         let is_jpeg = ext == "jpg" || ext == "jpeg";
         Self::from_bytes(name, &bytes, is_jpeg)
     }

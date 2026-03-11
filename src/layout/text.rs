@@ -14,6 +14,8 @@ pub struct TextBlock<'a, W: Write> {
     wrap: bool,
     margin_top: f64,
     margin_bottom: f64,
+    margin_left: f64,
+    margin_right: f64,
     link: Option<String>,
     color: Option<crate::Color>,
 }
@@ -31,6 +33,8 @@ impl<'a, W: Write> TextBlock<'a, W> {
             wrap: true,
             margin_top: 0.0,
             margin_bottom: 0.0,
+            margin_left: 0.0,
+            margin_right: 0.0,
             link: None,
             color: None,
         }
@@ -51,6 +55,10 @@ impl<'a, W: Write> TextBlock<'a, W> {
     /// Centers the text horizontally.
     pub fn align_center(self) -> Self {
         self.align(Align::Center)
+    }
+
+    pub fn align_left(self) -> Self {
+        self.align(Align::Left)
     }
 
     /// Aligns the text to the right.
@@ -82,6 +90,18 @@ impl<'a, W: Write> TextBlock<'a, W> {
         self
     }
 
+    /// Adds a margin at the left of the text block.
+    pub fn margin_left(mut self, m: f64) -> Self {
+        self.margin_left = m;
+        self
+    }
+
+    /// Adds a margin at the right of the text block.
+    pub fn margin_right(mut self, m: f64) -> Self {
+        self.margin_right = m;
+        self
+    }
+
     /// Sets the font to be used from the registered fonts.
     pub fn font(mut self, name: &str) -> Self {
         self.font = self.pdf.font_manager.get_font_id(name);
@@ -105,8 +125,8 @@ impl<'a, W: Write> Drop for TextBlock<'a, W> {
     fn drop(&mut self) {
         let _ = self.pdf.ensure_page_pub();
 
-        let margin = self.pdf.margin_pub();
-        let available = self.max_width.unwrap_or(self.pdf.content_width());
+        let margin = self.pdf.margin_pub() + self.margin_left;
+        let available = (self.max_width.unwrap_or(self.pdf.content_width()) - self.margin_left - self.margin_right).max(1.0);
 
         if self.margin_top > 0.0 {
             self.pdf.advance_cursor(self.margin_top);
@@ -132,12 +152,12 @@ impl<'a, W: Write> Drop for TextBlock<'a, W> {
                     let (x, y) = self.pdf.cursor_pos();
 
                     let text_w = self.pdf.font_manager.string_width(font_id, line, self.size);
-                    let x_off = x_offset(self.align, x, margin, available, text_w);
+                    let x_off = x_offset(self.align, x + self.margin_left, margin, available, text_w);
 
                     let baseline = y - ascent;
 
                     if let Some(c) = &self.color {
-                        let _ = self.pdf.set_fill_color(c.clone());
+                        let _ = self.pdf.set_fill_color(*c);
                     }
 
                     let encoded = self.pdf.font_manager.encode_text(font_id, line);
@@ -180,11 +200,11 @@ impl<'a, W: Write> Drop for TextBlock<'a, W> {
                     let (x, y) = self.pdf.cursor_pos();
 
                     let text_w = line.len() as f64 * char_w;
-                    let x_off = x_offset(self.align, x, margin, available, text_w);
+                    let x_off = x_offset(self.align, x + self.margin_left, margin, available, text_w);
                     let baseline = y - ascent;
 
                     if let Some(c) = &self.color {
-                        let _ = self.pdf.set_fill_color(c.clone());
+                        let _ = self.pdf.set_fill_color(*c);
                     }
 
                     let escaped = escape_pdf_str(line);

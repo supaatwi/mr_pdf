@@ -25,6 +25,20 @@ fn main() -> std::io::Result<()> {
         .margin_top(30.0)
         .margin_bottom(30.0);
 
+    pdf.text("This paragraph has a LEFT margin of 100 points, so it is indented significantly from the standard page boundary.")
+        .margin_left(100.0)
+        .margin_bottom(10.0);
+
+    pdf.text("This paragraph has a RIGHT margin of 100 points, so when it word wraps, it will do so much earlier than reaching the end of the page.")
+        .margin_right(100.0)
+        .margin_bottom(10.0);
+
+    pdf.text("This paragraph is centered, but with a 50pt left margin and 20pt right margin. Notice how the center respects the new bounded box!")
+        .margin_left(50.0)
+        .margin_right(20.0)
+        .align_center()
+        .margin_bottom(20.0);
+
     pdf.text("The end of the margin demonstration.")
         .align_right();
 

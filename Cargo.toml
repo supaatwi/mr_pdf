@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/supaatwi/mr_pdf"
 homepage = "https://github.com/supaatwi/mr_pdf"
 documentation = "https://github.com/supaatwi/mr_pdf/blob/main/README.md"
-keywords = ["pdf", "generator", "report", "chart", "table"]
+keywords = ["pdf", "generator", "report", "chart", "table", "markdown"]
 categories = ["rendering", "graphics"]
 readme = "README.md"
 
@@ -21,6 +21,7 @@ image = { version = "0.25.9", default-features = false, features = [
 roxmltree = "0.21.1"
 ttf-parser = "0.25.1"
 base64 = "0.22"
+pulldown-cmark = "0.13.1"
 
 [features]
 default = ["chart"]

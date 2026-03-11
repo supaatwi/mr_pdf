@@ -12,6 +12,12 @@ pub struct RowBuilder<'a, W: Write> {
     pub items: Vec<RowItem<'a, W>>,
 }
 
+impl<'a, W: Write> Default for RowBuilder<'a, W> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a, W: Write> RowBuilder<'a, W> {
     pub fn new() -> Self {
         Self { items: Vec::new() }

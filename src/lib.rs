@@ -20,6 +20,7 @@ pub use layout::table::RowBuilder as TableRowBuilder;
 pub use layout::table::TableBorderStyle;
 pub use layout::table::TableBuilder;
 pub use layout::text::TextBlock;
+pub use layout::markdown::MarkdownRenderer;
 use pdf::writer::PdfWriter;
 
 /// Represents the dimension or weight of a layout element.
@@ -382,6 +383,11 @@ impl<W: Write> Pdf<W> {
         Paragraph::new(self, text)
     }
 
+    /// Renders a markdown block.
+    pub fn markdown<'a>(&'a mut self, markdown: &'a str) -> MarkdownRenderer<'a, W> {
+        MarkdownRenderer::new(self, markdown)
+    }
+
     /// Adds a table using the builder pattern.
     pub fn table<F>(&mut self, f: F) -> std::io::Result<()>
     where
@@ -532,7 +538,7 @@ impl<W: Write> Pdf<W> {
                 let bx = cx - (bw / 2.0);
 
                 if let Some(c) = &chart.color {
-                    self.set_fill_color(c.clone())?;
+                    self.set_fill_color(*c)?;
                     self.fill_rect(bx, base_y, bw, bh)?;
                 } else {
                     self.rect(bx, base_y, bw, bh)?;
@@ -568,7 +574,7 @@ impl<W: Write> Pdf<W> {
                 self.draw_chart_label(chart, i, cx - 10.0, base_y - 15.0)?;
             }
             if let Some(c) = &chart.color {
-                self.set_stroke_color(c.clone())?;
+                self.set_stroke_color(*c)?;
             }
             for i in 0..points.len().saturating_sub(1) {
                 self.line(points[i].0, points[i].1, points[i + 1].0, points[i + 1].1)?;
@@ -624,8 +630,8 @@ impl<W: Write> Pdf<W> {
 
             let (old_x, old_y) = self.cursor_pos();
             self.set_cursor(start_x + size + 10.0, center_y + radius - (i as f64 * 20.0));
-            if let Some(labels) = &chart.labels {
-                if let Some(l) = labels.get(i) {
+            if let Some(labels) = &chart.labels
+                && let Some(l) = labels.get(i) {
                     self.set_fill_color(color)?;
                     self.fill_rect(self.cursor_pos().0, self.cursor_pos().1, 10.0, 10.0)?;
                     self.set_cursor(self.cursor_pos().0 + 15.0, self.cursor_pos().1 + 12.0);
@@ -639,7 +645,6 @@ impl<W: Write> Pdf<W> {
                     self.set_fill_color(Color::Rgb(0, 0, 0))?;
                     self.text(&display_text).size(8.0).wrap(false);
                 }
-            }
             self.set_cursor(old_x, old_y);
 
             current_angle -= sweep_angle;
@@ -698,14 +703,13 @@ impl<W: Write> Pdf<W> {
 
     #[cfg(feature = "chart")]
     fn draw_chart_label(&mut self, chart: &Chart, i: usize, x: f64, y: f64) -> std::io::Result<()> {
-        if let Some(labels) = &chart.labels {
-            if let Some(label) = labels.get(i) {
+        if let Some(labels) = &chart.labels
+            && let Some(label) = labels.get(i) {
                 let (old_x, old_y) = self.cursor_pos();
                 self.set_cursor(x, y);
                 self.text(label).size(8.0);
                 self.set_cursor(old_x, old_y);
             }
-        }
         Ok(())
     }
 

@@ -176,6 +176,12 @@ pub struct RowBuilder {
     pub cells: Vec<TableCell>,
 }
 
+impl Default for RowBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RowBuilder {
     pub fn new() -> Self {
         Self { cells: Vec::new() }
@@ -395,6 +401,214 @@ impl TableBuilder {
             zebra_color: self.zebra_color,
         }
     }
+
+    /// Initializes a StreamingTable that writes directly to the PDF without buffering all rows.
+    pub fn start<'a, W: Write>(self, pdf: &'a mut Pdf<W>) -> std::io::Result<StreamingTable<'a, W>> {
+        let available_full_w = pdf.content_width();
+
+        let resolved_widths: Vec<f64> = self
+            .widths
+            .iter()
+            .map(|w| match w {
+                Size::Points(p) => *p,
+                Size::Percent(pct) => (pct / 100.0) * available_full_w,
+                Size::Flex(_) => (1.0 / self.widths.len() as f64) * available_full_w,
+            })
+            .collect();
+
+        let num_cols = resolved_widths.len();
+        let default_w = resolved_widths.first().copied().unwrap_or(100.0);
+        let total_table_w: f64 = resolved_widths.iter().copied().sum();
+
+        let mut st = StreamingTable {
+            _widths: self.widths, // Kept if needed later
+            resolved_widths,
+            num_cols,
+            default_w,
+            total_table_w,
+            header: self.header,
+            repeat_header: self.repeat_header,
+            column_configs: self.column_configs,
+            header_style: self.header_style,
+            row_style: self.row_style,
+            border_style: self.border_style,
+            zebra_color: self.zebra_color,
+            pdf,
+            row_count: 0,
+            top_y: 0.0,
+        };
+
+        // Initialize and draw the header on the very first page
+        st.draw_header()?;
+        st.top_y = st.pdf.cursor_pos().1;
+
+        Ok(st)
+    }
+}
+
+pub struct StreamingTable<'a, W: Write> {
+    _widths: Vec<Size>,
+    resolved_widths: Vec<f64>,
+    num_cols: usize,
+    default_w: f64,
+    total_table_w: f64,
+    header: Vec<Vec<TableCell>>,
+    repeat_header: bool,
+    column_configs: Vec<ColumnConfig>,
+    header_style: TableStyle,
+    row_style: TableStyle,
+    border_style: TableBorderStyle,
+    zebra_color: Option<Color>,
+
+    pdf: &'a mut Pdf<W>,
+    row_count: usize,
+    top_y: f64,
+}
+
+impl<'a, W: Write> StreamingTable<'a, W> {
+    /// Adds a single row using a builder closure and immediately renders it.
+    pub fn row<F>(&mut self, f: F) -> std::io::Result<()>
+    where
+        F: FnOnce(&mut RowBuilder),
+    {
+        let mut row_builder = RowBuilder::new();
+        f(&mut row_builder);
+        self.add_row(row_builder.cells)
+    }
+
+    /// Adds a single row manually configured.
+    pub fn add_row(&mut self, row: Vec<TableCell>) -> std::io::Result<()> {
+        // Evaluate the height needed for this specific row.
+        // NOTE: StreamingTable processes one row at a time. Multi-row body rowspans are not supported within StreamingTable.
+        let rows = [row];
+        let (placements, heights) = process_rows(
+            self.pdf,
+            &rows,
+            self.num_cols,
+            &self.resolved_widths,
+            self.default_w,
+            self.row_style.font_size,
+        );
+        let h = heights.first().copied().unwrap_or(0.0);
+
+        self.pdf.check_page_break(h)?;
+        let pos_y = self.pdf.cursor_pos().1;
+
+        // Header repetition on new pages
+        if pos_y > self.top_y && self.repeat_header && !self.header.is_empty() {
+            self.draw_header()?;
+            self.top_y = self.pdf.cursor_pos().1;
+        }
+
+        let start_x = self.pdf.cursor_pos().0;
+        let row_bottom = self.top_y - h;
+
+        // Background / Zebra coloring
+        let mut final_bg = self.row_style.bg_color;
+        if final_bg.is_none()
+            && let Some(zc) = &self.zebra_color
+                && self.row_count % 2 == 1 {
+                    final_bg = Some(*zc);
+                }
+        if let Some(bg) = final_bg {
+            self.pdf.set_fill_color(bg)?;
+            self.pdf.fill_rect(start_x, row_bottom, self.total_table_w, h)?;
+        }
+
+        for p in &placements {
+            let x = start_x
+                + (0..p.start_col)
+                    .map(|c| self.resolved_widths.get(c).copied().unwrap_or(self.default_w))
+                    .sum::<f64>();
+            let bottom = self.top_y - h;
+            let w = spanned_width(&self.resolved_widths, p.start_col, p.span_w, self.default_w);
+
+            let config = self.column_configs.get(p.start_col).cloned().unwrap_or_default();
+
+            draw_cell_content(
+                self.pdf,
+                p.cell,
+                x,
+                bottom,
+                w,
+                h,
+                &self.row_style,
+                &config,
+                false,
+                self.border_style,
+            )?;
+        }
+
+        self.pdf.advance_cursor(h);
+        self.top_y = self.pdf.cursor_pos().1;
+        self.row_count += 1;
+        
+        Ok(())
+    }
+
+    fn draw_header(&mut self) -> std::io::Result<()> {
+        if self.header.is_empty() {
+            return Ok(());
+        }
+
+        let (header_placements, header_heights) = process_rows(
+            self.pdf,
+            &self.header,
+            self.num_cols,
+            &self.resolved_widths,
+            self.default_w,
+            self.header_style.font_size,
+        );
+
+        if header_heights.is_empty() {
+            return Ok(());
+        }
+
+        let total_h: f64 = header_heights.iter().sum();
+        self.pdf.check_page_break(total_h)?;
+
+        let (start_x, top_y) = self.pdf.cursor_pos();
+        let current_y = top_y;
+
+        if let Some(bg) = &self.header_style.bg_color {
+            self.pdf.set_fill_color(*bg)?;
+            self.pdf.fill_rect(start_x, current_y - total_h, self.total_table_w, total_h)?;
+        }
+
+        for p in &header_placements {
+            let x = start_x
+                + (0..p.start_col)
+                    .map(|c| self.resolved_widths.get(c).copied().unwrap_or(self.default_w))
+                    .sum::<f64>();
+            let cell_top_y = top_y
+                - (0..p.start_row)
+                    .map(|r| header_heights[r])
+                    .sum::<f64>();
+            let cell_h = (0..p.span_h)
+                .map(|r| header_heights[p.start_row + r])
+                .sum::<f64>();
+            let bottom = cell_top_y - cell_h;
+            let w = spanned_width(&self.resolved_widths, p.start_col, p.span_w, self.default_w);
+
+            let config = self.column_configs.get(p.start_col).cloned().unwrap_or_default();
+
+            draw_cell_content(
+                self.pdf,
+                p.cell,
+                x,
+                bottom,
+                w,
+                cell_h,
+                &self.header_style,
+                &config,
+                true,
+                self.border_style,
+            )?;
+        }
+
+        self.pdf.advance_cursor(total_h);
+        Ok(())
+    }
 }
 
 pub struct Table {
@@ -419,23 +633,76 @@ fn measure<W: Write>(pdf: &Pdf<W>, text: &str, font_size: f64) -> f64 {
 fn wrap<W: Write>(pdf: &Pdf<W>, text: &str, col_width: f64, font_size: f64) -> Vec<String> {
     let available = (col_width - CELL_PADDING * 2.0).max(1.0);
     let mut lines: Vec<String> = Vec::new();
-    let mut current = String::new();
-    for word in text.split_whitespace() {
-        let candidate = if current.is_empty() {
-            word.to_string()
-        } else {
-            format!("{} {}", current, word)
-        };
-        if measure(pdf, &candidate, font_size) > available && !current.is_empty() {
+
+    for explicit_line in text.split('\n') {
+        let mut current = String::new();
+        let words: Vec<&str> = explicit_line.split_whitespace().collect();
+
+        if words.is_empty() {
+            lines.push(String::new());
+            continue;
+        }
+
+        for word in words {
+            // First check if the word ITSELF is too long to fit on a line
+            let mut word_parts = Vec::new();
+            if measure(pdf, word, font_size) > available {
+                // Try to break at '/' or '-'
+                let mut p_curr = String::new();
+                for ch in word.chars() {
+                    let cand = format!("{}{}", p_curr, ch);
+                    if measure(pdf, &cand, font_size) > available && !p_curr.is_empty() {
+                        // Overflow! See if we can break here
+                        word_parts.push(p_curr);
+                        p_curr = ch.to_string();
+                    } else if ch == '/' || ch == '-' {
+                        word_parts.push(cand);
+                        p_curr = String::new();
+                    } else {
+                        p_curr = cand;
+                    }
+                }
+                if !p_curr.is_empty() {
+                    word_parts.push(p_curr);
+                }
+            } else {
+                word_parts.push(word.to_string());
+            }
+
+            for (idx, part) in word_parts.iter().enumerate() {
+                let candidate = if current.is_empty() {
+                    part.clone()
+                } else if idx == 0 {
+                    // It's the first part of a NEW word, so it needs a space
+                    format!("{} {}", current, part)
+                } else {
+                    // It's a subsequent part of the SAME broken word, NO space
+                    format!("{}{}", current, part)
+                };
+                
+                if measure(pdf, &candidate, font_size) > available && !current.is_empty() {
+                    if idx == 0 {
+                        // Overflow on a new word, push the old line
+                        lines.push(current);
+                        current = part.clone();
+                    } else {
+                        // Overflow while building the same broken word,
+                        // this means the piece before the '-' or '/' plus `current` 
+                        // fits, but adding this next piece exceeds the limit.
+                        // So push what we have.
+                        lines.push(current);
+                        current = part.clone();
+                    }
+                } else {
+                    current = candidate;
+                }
+            }
+        }
+        if !current.is_empty() {
             lines.push(current);
-            current = word.to_string();
-        } else {
-            current = candidate;
         }
     }
-    if !current.is_empty() {
-        lines.push(current);
-    }
+
     if lines.is_empty() {
         lines.push(String::new());
     }
@@ -587,7 +854,7 @@ fn draw_cell_content<W: Write>(
             let mut current_y = top_y - CELL_PADDING - v_shift - line_height + baseline_adj;
 
             if let Some(text_color) = &style.text_color {
-                pdf.set_fill_color(text_color.clone())?;
+                pdf.set_fill_color(*text_color)?;
             } else {
                 pdf.set_fill_color(Color::Rgb(0, 0, 0))?;
             }
@@ -709,7 +976,7 @@ impl Table {
             let current_y = top_y;
 
             if let Some(bg) = &self.header_style.bg_color {
-                pdf.set_fill_color(bg.clone())?;
+                pdf.set_fill_color(*bg)?;
                 pdf.fill_rect(start_x, current_y - total_h, total_table_w, total_h)?;
             }
 
@@ -767,14 +1034,12 @@ impl Table {
             let start_x = pdf.cursor_pos().0;
             let row_bottom = top_y - h;
 
-            let mut final_bg = self.row_style.bg_color.clone();
-            if final_bg.is_none() {
-                if let Some(zc) = &self.zebra_color {
-                    if r % 2 == 1 {
-                        final_bg = Some(zc.clone());
+            let mut final_bg = self.row_style.bg_color;
+            if final_bg.is_none()
+                && let Some(zc) = &self.zebra_color
+                    && r % 2 == 1 {
+                        final_bg = Some(*zc);
                     }
-                }
-            }
 
             if let Some(bg) = final_bg {
                 pdf.set_fill_color(bg)?;
