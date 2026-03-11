@@ -11,6 +11,7 @@ pub struct Font {
     pub name: String,
     pub path: String,
     pub raw_data: Vec<u8>,
+    pub used_chars: std::cell::RefCell<std::collections::HashSet<char>>,
 }
 
 /// Manages font registration, embedding, and text metrics.
@@ -41,6 +42,7 @@ impl FontManager {
             name: name.to_string(),
             path: path.to_string(),
             raw_data,
+            used_chars: std::cell::RefCell::new(std::collections::HashSet::new()),
         });
         self.name_to_id.insert(name.to_string(), id);
         Ok(id)
@@ -107,6 +109,14 @@ impl FontManager {
     /// Encodes a UTF-8 string into PDF Hexadecimal format using Glyph IDs.
     pub fn encode_text(&self, id: FontId, text: &str) -> String {
         let font = self.get_font(id);
+        
+        {
+            let mut chars = font.used_chars.borrow_mut();
+            for c in text.chars() {
+                chars.insert(c);
+            }
+        }
+        
         let mut hex = String::with_capacity(text.len() * 4 + 2);
         hex.push('<');
         if let Ok(face) = ttf_parser::Face::parse(&font.raw_data, 0) {

@@ -22,6 +22,7 @@ pub use layout::table::TableBuilder;
 pub use layout::text::TextBlock;
 pub use layout::markdown::MarkdownRenderer;
 use pdf::writer::PdfWriter;
+pub use pdf::crypto::PdfPermissions;
 
 /// Represents the dimension or weight of a layout element.
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -231,6 +232,11 @@ impl<W: Write> Pdf<W> {
             page_number_position: PageNumberPosition::BottomCenter,
             page_count: 0,
         })
+    }
+
+    /// Set PDF encryption (password protection and permissions).
+    pub fn set_encryption(&mut self, owner_pwd: &str, user_pwd: Option<&str>, perms: PdfPermissions) {
+        self.writer.enable_encryption(owner_pwd, user_pwd.unwrap_or(""), perms);
     }
 
     /// Sets the paper size for new pages.

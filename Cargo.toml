@@ -22,6 +22,9 @@ roxmltree = "0.21.1"
 ttf-parser = "0.25.1"
 base64 = "0.22"
 pulldown-cmark = "0.13.1"
+fontcull = { version = "2.0.1", default-features = false }
+rc4 = "0.1.0"
+md5 = "0.8.0"
 
 [features]
 default = ["chart"]

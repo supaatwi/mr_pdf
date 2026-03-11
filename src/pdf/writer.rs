@@ -1,6 +1,7 @@
 use crate::Metadata;
 use crate::font::FontManager;
 use crate::layout::text::escape_pdf_str;
+use crate::pdf::crypto::{SecurityHandler, PdfPermissions};
 use flate2::Compression;
 use flate2::write::ZlibEncoder;
 use std::io::Write;
@@ -26,6 +27,9 @@ pub struct PdfWriter<W: Write> {
     page_annots: Vec<(u32, Vec<LinkAnnotation>)>,
     pub compress: bool,
     shadings: Vec<(u32, [f64; 3], [f64; 3], [f64; 4])>,
+    pub security: Option<SecurityHandler>,
+    pub doc_id: [u8; 16],
+    encrypt_id: u32,
 }
 
 impl<W: Write> PdfWriter<W> {
@@ -45,6 +49,10 @@ impl<W: Write> PdfWriter<W> {
             page_annots: Vec::new(),
             compress: true,
             shadings: Vec::new(),
+            security: None,
+            // Simple generic document ID for demo
+            doc_id: [0x4d, 0x52, 0x2d, 0x50, 0x44, 0x46, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A],
+            encrypt_id: 0,
         };
         slf.write_raw(b"%PDF-1.4\n%\xE2\xE3\xCF\xD3\n")?;
 
@@ -53,6 +61,7 @@ impl<W: Write> PdfWriter<W> {
         slf.resources_id = slf.alloc_id();
         slf.info_id = slf.alloc_id();
         slf.builtin_font_id = slf.alloc_id();
+        slf.encrypt_id = slf.alloc_id();
 
         let bfid = slf.builtin_font_id;
         slf.start_obj(bfid)?;
@@ -62,6 +71,25 @@ impl<W: Write> PdfWriter<W> {
         slf.end_obj()?;
 
         Ok(slf)
+    }
+
+    pub fn enable_encryption(&mut self, owner: &str, user: &str, perms: PdfPermissions) {
+        let handler = SecurityHandler::new(owner, user, perms, &self.doc_id);
+        self.security = Some(handler);
+    }
+
+    pub fn encrypt_string(&self, obj_id: u32, text: &str) -> String {
+        let mut data = text.as_bytes().to_vec();
+        if let Some(sec) = &self.security {
+            sec.encrypt_bytes(obj_id, 0, &mut data);
+        }
+        let mut hex = String::with_capacity(data.len() * 2 + 2);
+        hex.push('<');
+        for b in data {
+            hex.push_str(&format!("{:02X}", b));
+        }
+        hex.push('>');
+        hex
     }
 
     pub fn write_raw(&mut self, data: &[u8]) -> std::io::Result<()> {
@@ -121,21 +149,27 @@ impl<W: Write> PdfWriter<W> {
     /// Appends a content stream to a specific object.
     pub fn write_content_stream(&mut self, content_id: u32, content: &str) -> std::io::Result<()> {
         self.start_obj(content_id)?;
-        if self.compress {
+        
+        let mut final_data: Vec<u8> = if self.compress {
             let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
             encoder.write_all(content.as_bytes())?;
-            let compressed = encoder.finish()?;
-            let s = format!(
-                "<< /Length {} /Filter /FlateDecode >>\nstream\n",
-                compressed.len()
-            );
-            self.write_raw(s.as_bytes())?;
-            self.write_raw(&compressed)?;
+            encoder.finish()?
         } else {
-            let s = format!("<< /Length {} >>\nstream\n", content.len());
-            self.write_raw(s.as_bytes())?;
-            self.write_raw(content.as_bytes())?;
+            content.as_bytes().to_vec()
+        };
+
+        if let Some(sec) = &self.security {
+            sec.encrypt_bytes(content_id, 0, &mut final_data);
         }
+
+        if self.compress {
+            let s = format!("<< /Length {} /Filter /FlateDecode >>\nstream\n", final_data.len());
+            self.write_raw(s.as_bytes())?;
+        } else {
+            let s = format!("<< /Length {} >>\nstream\n", final_data.len());
+            self.write_raw(s.as_bytes())?;
+        }
+        self.write_raw(&final_data)?;
         self.write_raw(b"\nendstream\n")?;
         self.end_obj()?;
         Ok(())
@@ -255,6 +289,22 @@ impl<W: Write> PdfWriter<W> {
         self.write_raw(s.as_bytes())?;
         self.end_obj()?;
 
+        if let Some(sec) = &self.security {
+            let mut o_hex = String::new();
+            for b in &sec.o { o_hex.push_str(&format!("{:02X}", b)); }
+            let mut u_hex = String::new();
+            for b in &sec.u { u_hex.push_str(&format!("{:02X}", b)); }
+            let p_val = sec.p;
+            
+            self.start_obj(self.encrypt_id)?;
+            let s = format!(
+                "<< /Filter /Standard /V 2 /R 3 /Length 128 /O <{}> /U <{}> /P {} >>\n",
+                o_hex, u_hex, p_val
+            );
+            self.write_raw(s.as_bytes())?;
+            self.end_obj()?;
+        }
+
         let xref_pos = self.pos;
         let s = format!("xref\n0 {}\n", self.offsets.len());
         self.write_raw(s.as_bytes())?;
@@ -267,25 +317,35 @@ impl<W: Write> PdfWriter<W> {
         self.start_obj(self.info_id)?;
         self.write_raw(b"<< ")?;
         if let Some(t) = &metadata.title {
-            let esc_t = escape_pdf_str(t);
-            self.write_raw(format!("/Title ({}) ", esc_t).as_bytes())?;
+            let v = if self.security.is_some() { self.encrypt_string(self.info_id, t) } else { format!("({})", escape_pdf_str(t)) };
+            self.write_raw(format!("/Title {} ", v).as_bytes())?;
         }
         if let Some(a) = &metadata.author {
-            let esc_a = escape_pdf_str(a);
-            self.write_raw(format!("/Author ({}) ", esc_a).as_bytes())?;
+            let v = if self.security.is_some() { self.encrypt_string(self.info_id, a) } else { format!("({})", escape_pdf_str(a)) };
+            self.write_raw(format!("/Author {} ", v).as_bytes())?;
         }
         if let Some(s) = &metadata.subject {
-            let esc_s = escape_pdf_str(s);
-            self.write_raw(format!("/Subject ({}) ", esc_s).as_bytes())?;
+            let v = if self.security.is_some() { self.encrypt_string(self.info_id, s) } else { format!("({})", escape_pdf_str(s)) };
+            self.write_raw(format!("/Subject {} ", v).as_bytes())?;
         }
         self.write_raw(b">>\n")?;
         self.end_obj()?;
 
+        let mut doc_id_hex = String::new();
+        for b in &self.doc_id { doc_id_hex.push_str(&format!("{:02X}", b)); }
+        
+        let encrypt_ext = if self.security.is_some() {
+            format!("/Encrypt {} 0 R /ID [ <{}> <{}> ] ", self.encrypt_id, doc_id_hex, doc_id_hex)
+        } else {
+            String::new()
+        };
+
         let s = format!(
-            "trailer\n<< /Size {} /Root {} 0 R /Info {} 0 R >>\nstartxref\n{}\n%%EOF\n",
+            "trailer\n<< /Size {} /Root {} 0 R /Info {} 0 R {}>>\nstartxref\n{}\n%%EOF\n",
             self.offsets.len(),
             self.catalog_id,
             self.info_id,
+            encrypt_ext,
             xref_pos
         );
         self.write_raw(s.as_bytes())?;

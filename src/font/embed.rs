@@ -6,8 +6,17 @@ use ttf_parser::Face;
 /// Low-level function to embed a TTF font into the PDF document.
 /// It creates several PDF objects: FontFile2, FontDescriptor, CIDFont, ToUnicode, and Type0.
 pub fn embed_ttf<W: Write>(writer: &mut PdfWriter<W>, font: &Font) -> std::io::Result<u32> {
-    let raw = &font.raw_data;
-    let face = Face::parse(raw, 0)
+    let mut raw_bytes = font.raw_data.clone();
+    
+    // Only embed characters that were actually used (Subsetting)
+    let chars = font.used_chars.borrow();
+    if !chars.is_empty() {
+        if let Ok(subset) = fontcull::subset_font_data(&raw_bytes, &chars, &[]) {
+            raw_bytes = subset;
+        }
+    }
+
+    let face = Face::parse(&raw_bytes, 0)
         .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid TTF"))?;
 
     let font_file2_id = writer.alloc_id();
@@ -19,11 +28,11 @@ pub fn embed_ttf<W: Write>(writer: &mut PdfWriter<W>, font: &Font) -> std::io::R
     writer.start_obj(font_file2_id)?;
     let stream_header = format!(
         "<< /Length {} /Length1 {} >>\nstream\n",
-        raw.len(),
-        raw.len()
+        raw_bytes.len(),
+        raw_bytes.len()
     );
     writer.write_raw(stream_header.as_bytes())?;
-    writer.write_raw(raw)?;
+    writer.write_raw(&raw_bytes)?;
     writer.write_raw(b"\nendstream\n")?;
     writer.end_obj()?;
 

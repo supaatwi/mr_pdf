@@ -17,8 +17,8 @@ fn main() -> std::io::Result<()> {
         .size(12.0);
 
     // Add the logo image
-    // logo.jpg is in the project root
-    pdf.image("logo.jpg")
+    // demo.jpg is in the project root
+    pdf.image("demo.jpg")
         .position(100.0, 500.0)
         .size(200.0, 150.0)
         .render()?;

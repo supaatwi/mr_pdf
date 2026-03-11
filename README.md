@@ -160,8 +160,29 @@ while let Some(data) = my_db_rx.recv().await {
 // Drops map to table end automatically
 ```
 
+### Automatic Font Subsetting (O(1) Memory Usage)
+`mr-pdf` is extremely memory efficient. Behind the scenes, we automatically collect the unique characters you use. When you call `.finish()`, we invoke a subsetting engine (`fontcull`) to slice the raw embedded TTF files perfectly.
+
+This means you can embed large 2MB `ttf` Asian/Arabic files—and if you only type "Hello World", the embedded font size inside the PDF will shrink to just **~15 KB**, reducing your total file size by up to **90%**!
+
+### PDF Security & Password Protection
+Keep your documents private with 128-bit encryption. You can set an Owner password to restrict permissions (printing, copying) and a User password to lock the file entirely.
+
+```rust
+pdf.set_encryption(
+    "admin_pass",   // Owner password
+    Some("user123"), // User password
+    PdfPermissions {
+        can_print: false,
+        can_copy: false,
+        ..Default::default()
+    }
+);
+```
+
 ### Writing Documents in Markdown
 You can use standard markdown syntax to rapidly compose large text blocks. MR-PDF automatically maps elements like Headings, Paragraphs, Lists, and Code blocks into beautifully laid-out PDF text blocks!
+
 
 ```rust
 let markdown_text = "
