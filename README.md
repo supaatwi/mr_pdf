@@ -103,13 +103,21 @@ pdf.image("photo.jpg")
     .render()?;
 ```
 
-### Tables with Spanning & Styling
+### Tables with Spanning & Advanced Headers
 ```rust
-use mr_pdf::{TableBorderStyle, Color, SizeExt};
+use mr_pdf::{TableBorderStyle, Color, SizeExt, Align, VAlign};
 
 pdf.table(|t| {
     t.widths(vec![33.0.pct(), 33.0.pct(), 33.0.pct()]);
-    t.header(vec!["Col 1", "Col 2", "Col 3"]);
+    
+    // Support for multiple header rows and rowspan via `header_row_builder`
+    t.header_row_builder(|r| {
+        r.cell("Multi-Row Header").span(2).rowspan(2).align(Align::Center).valign(VAlign::Center);
+        r.cell("Col 3 Top");
+    });
+    t.header_row_builder(|r| {
+        r.cell("Col 3 Bottom"); // Only provide remaining cells since span(2) rowspan(2) occupies earlier slots
+    });
     
     // Customize Borders
     t.border(TableBorderStyle::Ghost); // Ghost style (no vertical lines)
@@ -117,8 +125,9 @@ pdf.table(|t| {
     // Enable Zebra Striping
     t.zebra(Color::Rgb(240, 240, 240)); // Light Gray
     
+    // Regular rows
     t.row_builder(|r| {
-        r.cell("Spanned Cell").span(2); // Spans 2 columns
+        r.cell("Spanned Cell").span(2); // Spans 2 columns horizontally
         r.cell("Single Cell");
     });
     t.row(vec!["Row 2", "Data", "Note"]);

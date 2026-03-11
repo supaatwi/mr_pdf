@@ -78,6 +78,7 @@ pub enum Cell {
 pub struct TableCell {
     pub content: Cell,
     pub colspan: usize,
+    pub rowspan: usize,
     pub align: Option<Align>,
     pub valign: Option<VAlign>,
     pub link: Option<String>,
@@ -89,6 +90,7 @@ impl TableCell {
         Self {
             content: Cell::Text(s.to_string()),
             colspan: 1,
+            rowspan: 1,
             align: None,
             valign: None,
             link: None,
@@ -100,6 +102,7 @@ impl TableCell {
         Self {
             content: Cell::ImagePath(path.to_string()),
             colspan: 1,
+            rowspan: 1,
             align: None,
             valign: None,
             link: None,
@@ -111,6 +114,7 @@ impl TableCell {
         Self {
             content: Cell::ImageBase64(b64.to_string()),
             colspan: 1,
+            rowspan: 1,
             align: None,
             valign: None,
             link: None,
@@ -120,6 +124,12 @@ impl TableCell {
     /// Sets how many columns this cell should span.
     pub fn with_span(mut self, n: usize) -> Self {
         self.colspan = n.max(1);
+        self
+    }
+
+    /// Sets how many rows this cell should span.
+    pub fn with_rowspan(mut self, n: usize) -> Self {
+        self.rowspan = n.max(1);
         self
     }
 
@@ -153,6 +163,7 @@ impl From<String> for TableCell {
         Self {
             content: Cell::Text(s),
             colspan: 1,
+            rowspan: 1,
             align: None,
             valign: None,
             link: None,
@@ -196,6 +207,14 @@ impl RowBuilder {
         self
     }
 
+    /// Sets the rowspan for the most recently added cell.
+    pub fn rowspan(&mut self, n: usize) -> &mut Self {
+        if let Some(last) = self.cells.last_mut() {
+            last.rowspan = n.max(1);
+        }
+        self
+    }
+
     /// Sets the horizontal alignment for the most recently added cell.
     pub fn align(&mut self, a: Align) -> &mut Self {
         if let Some(last) = self.cells.last_mut() {
@@ -224,7 +243,7 @@ impl RowBuilder {
 /// Builder for complex PDF tables.
 pub struct TableBuilder {
     widths: Vec<Size>,
-    header: Vec<TableCell>,
+    header: Vec<Vec<TableCell>>,
     rows: Vec<Vec<TableCell>>,
     repeat_header: bool,
     column_configs: Vec<ColumnConfig>,
@@ -265,13 +284,34 @@ impl TableBuilder {
         self
     }
 
-    /// Sets the table header cells.
+    /// Sets the table header cells (replaces existing header rows).
     pub fn header<I, T>(&mut self, header: I) -> &mut Self
     where
         I: IntoIterator<Item = T>,
         T: Into<TableCell>,
     {
-        self.header = header.into_iter().map(Into::into).collect();
+        self.header = vec![header.into_iter().map(Into::into).collect()];
+        self
+    }
+
+    /// Adds a row to the table header.
+    pub fn header_row<I, T>(&mut self, header: I) -> &mut Self
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<TableCell>,
+    {
+        self.header.push(header.into_iter().map(Into::into).collect());
+        self
+    }
+
+    /// Adds a header row using the RowBuilder closure.
+    pub fn header_row_builder<F>(&mut self, f: F) -> &mut Self
+    where
+        F: FnOnce(&mut RowBuilder),
+    {
+        let mut builder = RowBuilder::new();
+        f(&mut builder);
+        self.header.push(builder.cells);
         self
     }
 
@@ -359,7 +399,7 @@ impl TableBuilder {
 
 pub struct Table {
     widths: Vec<Size>,
-    header: Vec<TableCell>,
+    header: Vec<Vec<TableCell>>,
     rows: Vec<Vec<TableCell>>,
     repeat_header: bool,
     column_configs: Vec<ColumnConfig>,
@@ -408,30 +448,217 @@ fn spanned_width(widths: &[f64], start_col: usize, colspan: usize, default_w: f6
         .sum()
 }
 
-fn row_height<W: Write>(
+struct GridCell<'a> {
+    cell: &'a TableCell,
+    start_row: usize,
+    start_col: usize,
+    span_w: usize,
+    span_h: usize,
+}
+
+fn process_rows<'a, W: Write>(
     pdf: &Pdf<W>,
-    row: &[TableCell],
-    widths: &[f64],
+    rows: &'a [Vec<TableCell>],
+    num_cols: usize,
+    resolved_widths: &[f64],
     default_w: f64,
     font_size: f64,
-) -> f64 {
-    let line_height = font_size * 1.3;
-    let mut col_idx = 0;
-    let max_lines = row
-        .iter()
-        .map(|tc| {
-            let w = spanned_width(widths, col_idx, tc.colspan, default_w);
-            col_idx += tc.colspan;
-            match &tc.content {
-                Cell::Text(t) => wrap(pdf, t, w, font_size).len(),
-                Cell::ImagePath(_) => 1,
-                Cell::ImageBase64(_) => 1,
-            }
-        })
-        .max()
-        .unwrap_or(1);
+) -> (Vec<GridCell<'a>>, Vec<f64>) {
+    let mut occupied = vec![vec![false; num_cols]; rows.len()];
+    let mut placements = Vec::new();
 
-    max_lines as f64 * line_height + CELL_PADDING * 2.0
+    for (r, row) in rows.iter().enumerate() {
+        let mut c = 0;
+        for tc in row {
+            while c < num_cols && occupied[r][c] {
+                c += 1;
+            }
+            if c >= num_cols {
+                break;
+            }
+
+            let span_w = tc.colspan.min(num_cols - c);
+            let span_h = tc.rowspan;
+
+            if r + span_h > occupied.len() {
+                occupied.resize(r + span_h, vec![false; num_cols]);
+            }
+
+            placements.push(GridCell {
+                cell: tc,
+                start_row: r,
+                start_col: c,
+                span_w,
+                span_h,
+            });
+
+            for rr in 0..span_h {
+                for cc in 0..span_w {
+                    occupied[r + rr][c + cc] = true;
+                }
+            }
+        }
+    }
+
+    let min_row_h = font_size * 1.3 + CELL_PADDING * 2.0;
+    let mut row_heights = vec![min_row_h; occupied.len()];
+
+    for p in &placements {
+        if p.span_h == 1 {
+            let w = spanned_width(resolved_widths, p.start_col, p.span_w, default_w);
+            let lines = match &p.cell.content {
+                Cell::Text(t) => wrap(pdf, t, w, font_size).len(),
+                _ => 1,
+            };
+            let h = lines as f64 * (font_size * 1.3) + CELL_PADDING * 2.0;
+            if h > row_heights[p.start_row] {
+                row_heights[p.start_row] = h;
+            }
+        }
+    }
+
+    for p in &placements {
+        if p.span_h > 1 {
+            let w = spanned_width(resolved_widths, p.start_col, p.span_w, default_w);
+            let lines = match &p.cell.content {
+                Cell::Text(t) => wrap(pdf, t, w, font_size).len(),
+                _ => 1,
+            };
+            let needed_h = lines as f64 * (font_size * 1.3) + CELL_PADDING * 2.0;
+            let current_h: f64 = (0..p.span_h).map(|i| row_heights[p.start_row + i]).sum();
+
+            if needed_h > current_h {
+                let extra_per_row = (needed_h - current_h) / (p.span_h as f64);
+                for i in 0..p.span_h {
+                    row_heights[p.start_row + i] += extra_per_row;
+                }
+            }
+        }
+    }
+
+    (placements, row_heights)
+}
+
+fn draw_cell_content<W: Write>(
+    pdf: &mut Pdf<W>,
+    tc: &TableCell,
+    x: f64,
+    bottom_y: f64,
+    w: f64,
+    h: f64,
+    style: &TableStyle,
+    config: &ColumnConfig,
+    is_header: bool,
+    border_style: TableBorderStyle,
+) -> std::io::Result<()> {
+    let top_y = bottom_y + h;
+    let line_height = style.font_size * 1.3;
+
+    let align = tc.align.unwrap_or(config.align);
+    let valign = tc.valign.unwrap_or(config.valign);
+
+    pdf.set_stroke_color(Color::Rgb(0, 0, 0))?;
+    match border_style {
+        TableBorderStyle::Full => {
+            pdf.rect(x, bottom_y, w, h)?;
+        }
+        TableBorderStyle::Ghost => {
+            pdf.line(x, bottom_y, x + w, bottom_y)?;
+        }
+        TableBorderStyle::HeaderOnly => {
+            if is_header {
+                pdf.line(x, bottom_y, x + w, bottom_y)?;
+            }
+        }
+        TableBorderStyle::None => {}
+    }
+
+    match &tc.content {
+        Cell::Text(text) => {
+            let lines = wrap(pdf, text, w, style.font_size);
+            let total_text_h = lines.len() as f64 * line_height;
+            let v_shift = match valign {
+                VAlign::Top => 0.0,
+                VAlign::Center => (h - 2.0 * CELL_PADDING - total_text_h).max(0.0) / 2.0,
+                VAlign::Bottom => (h - 2.0 * CELL_PADDING - total_text_h).max(0.0),
+            };
+
+            let baseline_adj = style.font_size * 0.2;
+            let mut current_y = top_y - CELL_PADDING - v_shift - line_height + baseline_adj;
+
+            if let Some(text_color) = &style.text_color {
+                pdf.set_fill_color(text_color.clone())?;
+            } else {
+                pdf.set_fill_color(Color::Rgb(0, 0, 0))?;
+            }
+
+            for line in lines {
+                let line_w = measure(pdf, &line, style.font_size);
+                let h_shift = match align {
+                    Align::Left => 0.0,
+                    Align::Center => (w - 2.0 * CELL_PADDING - line_w).max(0.0) / 2.0,
+                    Align::Right => (w - 2.0 * CELL_PADDING - line_w).max(0.0),
+                };
+
+                let tx = x + CELL_PADDING + h_shift;
+
+                match pdf.current_font {
+                    Some(fid) => {
+                        let encoded = pdf.font_manager.encode_text(fid, &line);
+                        let s = pdf.get_stream();
+                        s.push_str("BT\n");
+                        s.push_str(&format!("/F{} {:.1} Tf\n", fid.0, style.font_size));
+                        s.push_str(&format!("{:.2} {:.2} Td\n", tx, current_y));
+                        s.push_str(&format!("{} Tj\n", encoded));
+                        s.push_str("ET\n");
+                    }
+                    None => {
+                        let escaped = escape_pdf_str(&line);
+                        let s = pdf.get_stream();
+                        s.push_str("BT\n");
+                        s.push_str(&format!("/FBuiltin {:.1} Tf\n", style.font_size));
+                        s.push_str(&format!("{:.2} {:.2} Td\n", tx, current_y));
+                        s.push_str(&format!("({}) Tj\n", escaped));
+                        s.push_str("ET\n");
+                    }
+                }
+
+                if let Some(url) = &tc.link {
+                    pdf.add_link((tx, current_y, tx + line_w, current_y + style.font_size), url);
+                }
+
+                current_y -= line_height;
+            }
+        }
+        Cell::ImagePath(path) => {
+            let pad = 3.0;
+            let iw = w - pad * 2.0;
+            let ih = h - pad * 2.0;
+            if iw > 0.0 && ih > 0.0 {
+                pdf.image(path)
+                    .position(x + pad, bottom_y + pad)
+                    .size(iw, ih)
+                    .render()?;
+            }
+        }
+        Cell::ImageBase64(b64) => {
+            let pad = 3.0;
+            let iw = w - pad * 2.0;
+            let ih = h - pad * 2.0;
+            if iw > 0.0 && ih > 0.0 {
+                pdf.image_base64(b64)
+                    .position(x + pad, bottom_y + pad)
+                    .size(iw, ih)
+                    .render()?;
+            }
+        }
+    }
+
+    if let Some(url) = &tc.link {
+        pdf.add_link((x, bottom_y, x + w, bottom_y + h), url);
+    }
+
+    Ok(())
 }
 
 impl Table {
@@ -448,32 +675,102 @@ impl Table {
             })
             .collect();
 
+        let num_cols = resolved_widths.len();
         let default_w = resolved_widths.first().copied().unwrap_or(100.0);
+        let total_table_w: f64 = resolved_widths.iter().copied().sum();
 
-        let draw_row = |pdf: &mut Pdf<W>,
-                        row: &[TableCell],
-                        h: f64,
-                        style: &TableStyle,
-                        widths: &[f64],
-                        is_header: bool,
-                        row_idx: usize|
-         -> std::io::Result<()> {
+        let (header_placements, header_heights) = process_rows(
+            pdf,
+            &self.header,
+            num_cols,
+            &resolved_widths,
+            default_w,
+            self.header_style.font_size,
+        );
+
+        let (body_placements, body_heights) = process_rows(
+            pdf,
+            &self.rows,
+            num_cols,
+            &resolved_widths,
+            default_w,
+            self.row_style.font_size,
+        );
+
+        let draw_header = |pdf: &mut Pdf<W>| -> std::io::Result<()> {
+            if header_heights.is_empty() {
+                return Ok(());
+            }
+
+            let total_h: f64 = header_heights.iter().sum();
+            pdf.check_page_break(total_h)?;
+
             let (start_x, top_y) = pdf.cursor_pos();
-            let bottom_y = top_y - h;
-            let line_height = style.font_size * 1.3;
+            let current_y = top_y;
 
-            let mut x = start_x;
-            let mut col_idx = 0;
+            if let Some(bg) = &self.header_style.bg_color {
+                pdf.set_fill_color(bg.clone())?;
+                pdf.fill_rect(start_x, current_y - total_h, total_table_w, total_h)?;
+            }
 
-            let total_w: f64 = (0..row.iter().map(|c| c.colspan).sum())
-                .map(|i| resolved_widths.get(i).copied().unwrap_or(default_w))
-                .sum();
+            for p in &header_placements {
+                let x = start_x
+                    + (0..p.start_col)
+                        .map(|c| resolved_widths.get(c).copied().unwrap_or(default_w))
+                        .sum::<f64>();
+                let cell_top_y = top_y
+                    - (0..p.start_row)
+                        .map(|r| header_heights[r])
+                        .sum::<f64>();
+                let cell_h = (0..p.span_h)
+                    .map(|r| header_heights[p.start_row + r])
+                    .sum::<f64>();
+                let bottom = cell_top_y - cell_h;
+                let w = spanned_width(&resolved_widths, p.start_col, p.span_w, default_w);
 
-            // Background color (Style BG or Zebra)
-            let mut final_bg = style.bg_color.clone();
-            if !is_header && final_bg.is_none() {
+                let config = self.column_configs.get(p.start_col).cloned().unwrap_or_default();
+
+                draw_cell_content(
+                    pdf,
+                    p.cell,
+                    x,
+                    bottom,
+                    w,
+                    cell_h,
+                    &self.header_style,
+                    &config,
+                    true,
+                    self.border_style,
+                )?;
+            }
+
+            pdf.advance_cursor(total_h);
+            Ok(())
+        };
+
+        if !self.header.is_empty() {
+            draw_header(pdf)?;
+        }
+
+        let mut top_y = pdf.cursor_pos().1;
+
+        for r in 0..body_heights.len() {
+            let h = body_heights[r];
+            pdf.check_page_break(h)?;
+            
+            let pos_y = pdf.cursor_pos().1;
+            if pos_y > top_y && self.repeat_header && !self.header.is_empty() {
+                draw_header(pdf)?;
+                top_y = pdf.cursor_pos().1;
+            }
+
+            let start_x = pdf.cursor_pos().0;
+            let row_bottom = top_y - h;
+
+            let mut final_bg = self.row_style.bg_color.clone();
+            if final_bg.is_none() {
                 if let Some(zc) = &self.zebra_color {
-                    if row_idx % 2 == 1 {
+                    if r % 2 == 1 {
                         final_bg = Some(zc.clone());
                     }
                 }
@@ -481,188 +778,40 @@ impl Table {
 
             if let Some(bg) = final_bg {
                 pdf.set_fill_color(bg)?;
-                pdf.fill_rect(start_x, bottom_y, total_w, h)?;
+                pdf.fill_rect(start_x, row_bottom, total_table_w, h)?;
             }
 
-            for tc in row {
-                let w = spanned_width(widths, col_idx, tc.colspan, default_w);
-                let config = self
-                    .column_configs
-                    .get(col_idx)
-                    .cloned()
-                    .unwrap_or_default();
-                col_idx += tc.colspan;
+            for p in &body_placements {
+                if p.start_row == r {
+                    let x = start_x
+                        + (0..p.start_col)
+                            .map(|c| resolved_widths.get(c).copied().unwrap_or(default_w))
+                            .sum::<f64>();
+                    let cell_h = (0..p.span_h)
+                        .map(|ri| body_heights[p.start_row + ri])
+                        .sum::<f64>();
+                    let bottom = top_y - cell_h;
+                    let w = spanned_width(&resolved_widths, p.start_col, p.span_w, default_w);
 
-                let align = tc.align.unwrap_or(config.align);
-                let valign = tc.valign.unwrap_or(config.valign);
+                    let config = self.column_configs.get(p.start_col).cloned().unwrap_or_default();
 
-                // Borders
-                pdf.set_stroke_color(Color::Rgb(0, 0, 0))?;
-                match self.border_style {
-                    TableBorderStyle::Full => {
-                        pdf.rect(x, bottom_y, w, h)?;
-                    }
-                    TableBorderStyle::Ghost => {
-                        pdf.line(x, bottom_y, x + w, bottom_y)?;
-                    }
-                    TableBorderStyle::HeaderOnly => {
-                        if is_header {
-                            pdf.line(x, bottom_y, x + w, bottom_y)?;
-                        }
-                    }
-                    TableBorderStyle::None => {}
+                    draw_cell_content(
+                        pdf,
+                        p.cell,
+                        x,
+                        bottom,
+                        w,
+                        cell_h,
+                        &self.row_style,
+                        &config,
+                        false,
+                        self.border_style,
+                    )?;
                 }
-
-                match &tc.content {
-                    Cell::Text(text) => {
-                        let lines = wrap(pdf, text, w, style.font_size);
-                        let total_text_h = lines.len() as f64 * line_height;
-                        let v_shift = match valign {
-                            VAlign::Top => 0.0,
-                            VAlign::Center => {
-                                (h - 2.0 * CELL_PADDING - total_text_h).max(0.0) / 2.0
-                            }
-                            VAlign::Bottom => (h - 2.0 * CELL_PADDING - total_text_h).max(0.0),
-                        };
-
-                        let baseline_adj = style.font_size * 0.2;
-                        let mut current_y =
-                            top_y - CELL_PADDING - v_shift - line_height + baseline_adj;
-
-                        if let Some(text_color) = &style.text_color {
-                            pdf.set_fill_color(text_color.clone())?;
-                        } else {
-                            pdf.set_fill_color(Color::Rgb(0, 0, 0))?;
-                        }
-
-                        for line in lines {
-                            let line_w = measure(pdf, &line, style.font_size);
-                            let h_shift = match align {
-                                Align::Left => 0.0,
-                                Align::Center => (w - 2.0 * CELL_PADDING - line_w).max(0.0) / 2.0,
-                                Align::Right => (w - 2.0 * CELL_PADDING - line_w).max(0.0),
-                            };
-
-                            let tx = x + CELL_PADDING + h_shift;
-
-                            match pdf.current_font {
-                                Some(fid) => {
-                                    let encoded = pdf.font_manager.encode_text(fid, &line);
-                                    let s = pdf.get_stream();
-                                    s.push_str("BT\n");
-                                    s.push_str(&format!("/F{} {:.1} Tf\n", fid.0, style.font_size));
-                                    s.push_str(&format!("{:.2} {:.2} Td\n", tx, current_y));
-                                    s.push_str(&format!("{} Tj\n", encoded));
-                                    s.push_str("ET\n");
-                                }
-                                None => {
-                                    let escaped = escape_pdf_str(&line);
-                                    let s = pdf.get_stream();
-                                    s.push_str("BT\n");
-                                    s.push_str(&format!("/FBuiltin {:.1} Tf\n", style.font_size));
-                                    s.push_str(&format!("{:.2} {:.2} Td\n", tx, current_y));
-                                    s.push_str(&format!("({}) Tj\n", escaped));
-                                    s.push_str("ET\n");
-                                }
-                            }
-
-                            if let Some(url) = &tc.link {
-                                pdf.add_link(
-                                    (tx, current_y, tx + line_w, current_y + style.font_size),
-                                    url,
-                                );
-                            }
-
-                            current_y -= line_height;
-                        }
-                    }
-                    Cell::ImagePath(path) => {
-                        let pad = 3.0;
-                        let iw = w - pad * 2.0;
-                        let ih = h - pad * 2.0;
-                        if iw > 0.0 && ih > 0.0 {
-                            pdf.image(path)
-                                .position(x + pad, bottom_y + pad)
-                                .size(iw, ih)
-                                .render()?;
-                        }
-                    }
-                    Cell::ImageBase64(b64) => {
-                        let pad = 3.0;
-                        let iw = w - pad * 2.0;
-                        let ih = h - pad * 2.0;
-                        if iw > 0.0 && ih > 0.0 {
-                            pdf.image_base64(b64)
-                                .position(x + pad, bottom_y + pad)
-                                .size(iw, ih)
-                                .render()?;
-                        }
-                    }
-                }
-
-                if let Some(url) = &tc.link {
-                    pdf.add_link((x, bottom_y, x + w, bottom_y + h), url);
-                }
-
-                x += w;
             }
 
+            top_y -= h;
             pdf.advance_cursor(h);
-            Ok(())
-        };
-
-        if !self.header.is_empty() {
-            let h = row_height(
-                pdf,
-                &self.header,
-                &resolved_widths,
-                default_w,
-                self.header_style.font_size,
-            );
-            pdf.check_page_break(h)?;
-            draw_row(
-                pdf,
-                &self.header,
-                h,
-                &self.header_style,
-                &resolved_widths,
-                true,
-                0,
-            )?;
-        }
-
-        for (i, row) in self.rows.iter().enumerate() {
-            let h = row_height(
-                pdf,
-                row,
-                &resolved_widths,
-                default_w,
-                self.row_style.font_size,
-            );
-            let pre_y = pdf.cursor_pos().1;
-            pdf.check_page_break(h)?;
-            let post_y = pdf.cursor_pos().1;
-
-            if post_y > pre_y && self.repeat_header && !self.header.is_empty() {
-                let hh = row_height(
-                    pdf,
-                    &self.header,
-                    &resolved_widths,
-                    default_w,
-                    self.header_style.font_size,
-                );
-                draw_row(
-                    pdf,
-                    &self.header,
-                    hh,
-                    &self.header_style,
-                    &resolved_widths,
-                    true,
-                    0,
-                )?;
-            }
-
-            draw_row(pdf, row, h, &self.row_style, &resolved_widths, false, i)?;
         }
 
         Ok(())
