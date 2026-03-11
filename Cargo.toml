@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/supaatwi/mr_pdf"
 homepage = "https://github.com/supaatwi/mr_pdf"
 documentation = "https://github.com/supaatwi/mr_pdf/blob/main/README.md"
-keywords = ["pdf", "generator", "report", "chart", "table", "markdown"]
+keywords = ["pdf", "generator", "chart", "table", "markdown"]
 categories = ["rendering", "graphics"]
 readme = "README.md"
 
