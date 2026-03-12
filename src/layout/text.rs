@@ -329,6 +329,8 @@ pub struct RichTextSpan {
     pub text: String,
     pub bold: bool,
     pub color: Option<crate::Color>,
+    pub size: Option<f64>,
+    pub margin_left: f64,
 }
 
 impl RichTextSpan {
@@ -337,6 +339,8 @@ impl RichTextSpan {
             text: text.to_string(),
             bold: false,
             color: None,
+            size: None,
+            margin_left: 0.0,
         }
     }
     pub fn bold(&mut self) -> &mut Self {
@@ -345,6 +349,14 @@ impl RichTextSpan {
     }
     pub fn color(&mut self, color: crate::Color) -> &mut Self {
         self.color = Some(color);
+        self
+    }
+    pub fn size(&mut self, size: f64) -> &mut Self {
+        self.size = Some(size);
+        self
+    }
+    pub fn margin_left(&mut self, m: f64) -> &mut Self {
+        self.margin_left = m;
         self
     }
 }
@@ -451,7 +463,8 @@ impl<'a, W: Write> Drop for RichTextBlock<'a, W> {
 
                     let text_w: f64 = line.iter().map(|seg| {
                         let fid = if seg.bold { bold_font_id } else { base_font_id };
-                        self.pdf.font_manager.string_width(fid, &seg.text, self.size)
+                        let sz = seg.size.unwrap_or(self.size);
+                        seg.margin_left + self.pdf.font_manager.string_width(fid, &seg.text, sz)
                     }).sum();
 
                     let mut x_off = x_offset(self.align, x + self.margin_left, margin, available, text_w);
@@ -459,7 +472,10 @@ impl<'a, W: Write> Drop for RichTextBlock<'a, W> {
 
                     for seg in line {
                         let fid = if seg.bold { bold_font_id } else { base_font_id };
-                        let seg_w = self.pdf.font_manager.string_width(fid, &seg.text, self.size);
+                        let sz = seg.size.unwrap_or(self.size);
+                        x_off += seg.margin_left;
+                        
+                        let seg_w = self.pdf.font_manager.string_width(fid, &seg.text, sz);
                         
                         if let Some(c) = seg.color {
                             let _ = self.pdf.set_fill_color(c);
@@ -470,7 +486,7 @@ impl<'a, W: Write> Drop for RichTextBlock<'a, W> {
                         let encoded = self.pdf.font_manager.encode_text(fid, &seg.text);
                         let s = self.pdf.get_stream();
                         s.push_str("BT\n");
-                        s.push_str(&format!("/F{} {:.1} Tf\n", fid.0, self.size));
+                        s.push_str(&format!("/F{} {:.1} Tf\n", fid.0, sz));
                         s.push_str(&format!("{:.2} {:.2} Td\n", x_off, baseline));
                         s.push_str(&format!("{} Tj\n", encoded));
                         s.push_str("ET\n");
@@ -527,10 +543,11 @@ fn word_wrap_rich_text(
             }
 
             let f_id = if span.bold { bold_font_id } else { base_font_id };
+            let sz = span.size.unwrap_or(size);
             let words: Vec<&str> = part.split_inclusive(char::is_whitespace).collect();
 
             for word in words {
-                let word_w = fm.string_width(f_id, word, size);
+                let word_w = fm.string_width(f_id, word, sz);
                 
                 if current_line_width + word_w > available && !current_line.is_empty() {
                     lines.push(current_line);
@@ -538,13 +555,17 @@ fn word_wrap_rich_text(
                     current_line_width = 0.0;
                 }
                 
-                if let Some(last) = current_line.last_mut().filter(|l: &&mut RichTextSpan| l.bold == span.bold && l.color == span.color) {
+                if let Some(last) = current_line.last_mut().filter(|l: &&mut RichTextSpan| {
+                    l.bold == span.bold && l.color == span.color && l.size == span.size
+                }) {
                     last.text.push_str(word);
                 } else {
                     current_line.push(RichTextSpan {
                         text: word.to_string(),
                         bold: span.bold,
                         color: span.color,
+                        size: span.size,
+                        margin_left: if current_line.is_empty() { span.margin_left } else { 0.0 }, // Only first word gets span-level margin if wrapped? Actually better to just use current span
                     });
                 }
                 current_line_width += word_w;

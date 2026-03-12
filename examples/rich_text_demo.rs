@@ -50,6 +50,17 @@ fn main() -> std::io::Result<()> {
         .margin_bottom(10.0);
     });
 
+    // Demonstrate individual span size and margin
+    pdf.rich_text(|rt| {
+        rt.span("Standard text ");
+        rt.span("Big words").size(24.0).bold().color(Color::Rgb(255, 165, 0));
+        rt.span(" with ").margin_left(20.0);
+        rt.span("margin").bold().margin_left(10.0);
+        rt.span(", and small text").size(8.0).color(Color::Rgb(128, 128, 128));
+    })
+    .align_center()
+    .margin_top(20.0);
+
     pdf.finish()?;
 
     println!("Successfully wrote rich_text_demo.pdf to preview directory");
