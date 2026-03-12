@@ -525,7 +525,7 @@ fn word_wrap_rich_text(
         return vec![spans.to_vec()];
     }
     let mut lines = Vec::new();
-    let mut current_line = Vec::new();
+    let mut current_line: Vec<RichTextSpan> = Vec::new();
     let mut current_line_width = 0.0;
     
     for span in spans {
@@ -549,12 +549,23 @@ fn word_wrap_rich_text(
             for word in words {
                 let word_w = fm.string_width(f_id, word, sz);
                 
-                if current_line_width + word_w > available && !current_line.is_empty() {
+                // Determine if we need to apply margin for this new span start
+                let is_new_span_start = current_line.is_empty() || 
+                    current_line.last().map_or(true, |l| l.bold != span.bold || l.color != span.color || l.size != span.size);
+                
+                let effective_margin = if is_new_span_start { span.margin_left } else { 0.0 };
+
+                if current_line_width + word_w + effective_margin > available && !current_line.is_empty() {
                     lines.push(current_line);
                     current_line = Vec::new();
                     current_line_width = 0.0;
                 }
                 
+                // Re-calculate effective margin for the potentially new line
+                let is_new_span_start_final = current_line.is_empty() || 
+                    current_line.last().map_or(true, |l| l.bold != span.bold || l.color != span.color || l.size != span.size);
+                let final_margin = if is_new_span_start_final { span.margin_left } else { 0.0 };
+
                 if let Some(last) = current_line.last_mut().filter(|l: &&mut RichTextSpan| {
                     l.bold == span.bold && l.color == span.color && l.size == span.size
                 }) {
@@ -565,8 +576,9 @@ fn word_wrap_rich_text(
                         bold: span.bold,
                         color: span.color,
                         size: span.size,
-                        margin_left: if current_line.is_empty() { span.margin_left } else { 0.0 }, // Only first word gets span-level margin if wrapped? Actually better to just use current span
+                        margin_left: final_margin,
                     });
+                    current_line_width += final_margin;
                 }
                 current_line_width += word_w;
             }
