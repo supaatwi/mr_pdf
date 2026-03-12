@@ -59,6 +59,11 @@ impl FontManager {
         &self.fonts[id.0]
     }
 
+    /// Returns the name of the font associated with the given FontId.
+    pub fn get_font_name(&self, id: FontId) -> Option<&str> {
+        self.fonts.get(id.0).map(|f| f.name.as_str())
+    }
+
     /// Embeds all registered fonts into the PDF document.
     pub fn embed_fonts<W: Write>(&mut self, writer: &mut PdfWriter<W>) -> std::io::Result<String> {
         let mut resources = String::new();

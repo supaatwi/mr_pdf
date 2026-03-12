@@ -144,6 +144,7 @@ pub struct Pdf<W: Write> {
     pub page_number_position: PageNumberPosition,
     pub page_count: u32,
     pub watermark: Option<Watermark>,
+    pub line_spacing: f64,
 }
 
 /// Configuration for page watermarks.
@@ -243,6 +244,7 @@ impl<W: Write> Pdf<W> {
             page_number_position: PageNumberPosition::BottomCenter,
             page_count: 0,
             watermark: None,
+            line_spacing: 1.3,
         })
     }
 
@@ -446,9 +448,29 @@ impl<W: Write> Pdf<W> {
         Paragraph::new(self, text)
     }
 
+    /// Creates a rich text block where individual spans can be styled.
+    pub fn rich_text<'a, F>(&'a mut self, build_fn: F) -> crate::layout::text::RichTextBlock<'a, W>
+    where
+        F: FnOnce(&mut crate::layout::text::RichTextBuilder),
+    {
+        crate::layout::text::RichTextBlock::new(self, build_fn)
+    }
+
     /// Renders a markdown block.
     pub fn markdown<'a>(&'a mut self, markdown: &'a str) -> MarkdownRenderer<'a, W> {
         MarkdownRenderer::new(self, markdown)
+    }
+
+    /// Temporarily changes the line height multiplier for all content generated within the closure.
+    pub fn line_height<F>(&mut self, multiplier: f64, build_fn: F) -> &mut Self
+    where
+        F: FnOnce(&mut Self),
+    {
+        let old_spacing = self.line_spacing;
+        self.line_spacing = multiplier;
+        build_fn(self);
+        self.line_spacing = old_spacing;
+        self
     }
 
     /// Adds a table using the builder pattern.

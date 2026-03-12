@@ -905,7 +905,7 @@ fn process_rows<'a, W: Write>(
         }
     }
 
-    let min_row_h = font_size * 1.3 + CELL_PADDING * 2.0;
+    let min_row_h = font_size * pdf.line_spacing + CELL_PADDING * 2.0;
     let mut row_heights = vec![min_row_h; occupied.len()];
 
     for p in &placements {
@@ -915,9 +915,9 @@ fn process_rows<'a, W: Write>(
             let needed_h = match &p.cell.content {
                 Cell::Text(t) => {
                     let lines = wrap(pdf, t, w, cell_font_size);
-                    lines.len() as f64 * (cell_font_size * 1.3) + CELL_PADDING * 2.0
+                    lines.len() as f64 * (cell_font_size * pdf.line_spacing) + CELL_PADDING * 2.0
                 }
-                _ => cell_font_size * 1.3 + CELL_PADDING * 2.0,
+                _ => cell_font_size * pdf.line_spacing + CELL_PADDING * 2.0,
             };
             if needed_h > row_heights[p.start_row] {
                 row_heights[p.start_row] = needed_h;
@@ -932,9 +932,9 @@ fn process_rows<'a, W: Write>(
             let needed_h = match &p.cell.content {
                 Cell::Text(t) => {
                     let lines = wrap(pdf, t, w, cell_font_size);
-                    lines.len() as f64 * (cell_font_size * 1.3) + CELL_PADDING * 2.0
+                    lines.len() as f64 * (cell_font_size * pdf.line_spacing) + CELL_PADDING * 2.0
                 }
-                _ => cell_font_size * 1.3 + CELL_PADDING * 2.0,
+                _ => cell_font_size * pdf.line_spacing + CELL_PADDING * 2.0,
             };
             let current_h: f64 = (0..p.span_h).map(|i| row_heights[p.start_row + i]).sum();
 
@@ -964,7 +964,7 @@ fn draw_cell_content<W: Write>(
 ) -> std::io::Result<()> {
     let cell_font_size = tc.font_size.unwrap_or(style.font_size);
     let top_y = bottom_y + h;
-    let line_height = cell_font_size * 1.3;
+    let line_height = cell_font_size * pdf.line_spacing;
 
     let align = tc.align.unwrap_or(config.align);
     let valign = tc.valign.unwrap_or(config.valign);
