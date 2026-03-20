@@ -329,6 +329,7 @@ impl RowBuilder {
 }
 
 /// Builder for complex PDF tables.
+#[derive(Clone)]
 pub struct TableBuilder {
     widths: Vec<Size>,
     header: Vec<Vec<TableCell>>,

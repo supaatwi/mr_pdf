@@ -17,9 +17,11 @@ use layout::cursor::Cursor;
 pub use layout::flex::RowBuilder;
 use layout::paragraph::Paragraph;
 pub use layout::table::RowBuilder as TableRowBuilder;
+pub use layout::table::TableCell;
 pub use layout::table::TableBorderStyle;
 pub use layout::table::TableBuilder;
 pub use layout::box_layout::BoxBuilder;
+pub use layout::multiplexed::MultiplexedTable;
 pub use layout::text::TextBlock;
 pub use layout::markdown::MarkdownRenderer;
 use pdf::writer::PdfWriter;
@@ -447,6 +449,12 @@ impl<W: Write> Pdf<W> {
         self.ensure_page()?;
         let mut builder = BoxBuilder::new(self);
         f(&mut builder)
+    }
+
+    /// Starts a multiplexed table streaming session that buffers rows to disk.
+    /// This allows interleaving rows for different tables while keeping RAM usage constant.
+    pub fn multi_table_streaming(&mut self, builder: TableBuilder) -> std::io::Result<MultiplexedTable> {
+        MultiplexedTable::new(builder)
     }
 
     /// Creates a new text block.
