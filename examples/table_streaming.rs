@@ -30,7 +30,7 @@ fn main() -> std::io::Result<()> {
     // Start streaming: this consumes the builder and draws the header.
     let mut streaming_table = table_builder.start(&mut pdf)?;
 
-    let total_rows = 500; // Imagine this comes continuously from rx.recv().await
+    let total_rows = 50000; // Imagine this comes continuously from rx.recv().await
 
     for i in 1..=total_rows {
         // Stream data row by row. Once `.row` finishes, the bytes are pushed to the PDF stream!

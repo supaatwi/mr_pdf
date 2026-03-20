@@ -19,6 +19,7 @@ use layout::paragraph::Paragraph;
 pub use layout::table::RowBuilder as TableRowBuilder;
 pub use layout::table::TableBorderStyle;
 pub use layout::table::TableBuilder;
+pub use layout::box_layout::BoxBuilder;
 pub use layout::text::TextBlock;
 pub use layout::markdown::MarkdownRenderer;
 use pdf::writer::PdfWriter;
@@ -436,6 +437,16 @@ impl<W: Write> Pdf<W> {
             self.new_page()?;
         }
         Ok(())
+    }
+
+    /// Adds a boxed container with background and border.
+    pub fn box_layout<F>(&mut self, f: F) -> std::io::Result<()>
+    where
+        F: FnOnce(&mut BoxBuilder<W>) -> std::io::Result<()>,
+    {
+        self.ensure_page()?;
+        let mut builder = BoxBuilder::new(self);
+        f(&mut builder)
     }
 
     /// Creates a new text block.
@@ -946,7 +957,7 @@ impl<W: Write> Pdf<W> {
         self.draw_rounded_rect_op(x, y, w, h, r, "f")
     }
 
-    fn draw_rounded_rect_op(
+    pub fn draw_rounded_rect_op(
         &mut self,
         x: f64,
         y: f64,

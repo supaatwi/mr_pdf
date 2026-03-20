@@ -18,6 +18,7 @@ pub struct TextBlock<'a, W: Write> {
     margin_right: f64,
     link: Option<String>,
     color: Option<crate::Color>,
+    bold: bool,
 }
 
 impl<'a, W: Write> TextBlock<'a, W> {
@@ -37,6 +38,7 @@ impl<'a, W: Write> TextBlock<'a, W> {
             margin_right: 0.0,
             link: None,
             color: None,
+            bold: false,
         }
     }
 
@@ -119,6 +121,12 @@ impl<'a, W: Write> TextBlock<'a, W> {
         self.color = Some(color);
         self
     }
+
+    /// Sets the text to be bold.
+    pub fn bold(mut self) -> Self {
+        self.bold = true;
+        self
+    }
 }
 
 impl<'a, W: Write> Drop for TextBlock<'a, W> {
@@ -133,7 +141,15 @@ impl<'a, W: Write> Drop for TextBlock<'a, W> {
         }
 
         match self.font {
-            Some(font_id) => {
+            Some(mut font_id) => {
+                if self.bold {
+                    if let Some(name) = self.pdf.font_manager.get_font_name(font_id) {
+                        let bold_name = format!("{}-Bold", name);
+                        if let Some(bid) = self.pdf.font_manager.get_font_id(&bold_name) {
+                            font_id = bid;
+                        }
+                    }
+                }
                 let (ascent, descent) =
                     self.pdf.font_manager.get_ascent_descent(font_id, self.size);
                 let line_h = ascent - descent;
