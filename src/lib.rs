@@ -21,7 +21,7 @@ pub use layout::table::TableCell;
 pub use layout::table::TableBorderStyle;
 pub use layout::table::TableBuilder;
 pub use layout::box_layout::BoxBuilder;
-pub use layout::multiplexed::MultiplexedTable;
+pub use layout::multiplexed::{MultiplexedTable, TitleStyle};
 pub use layout::text::TextBlock;
 pub use layout::markdown::MarkdownRenderer;
 use pdf::writer::PdfWriter;
@@ -320,12 +320,12 @@ impl<W: Write> Pdf<W> {
     }
 
     /// Registers a TTF font for use in the document.
-    pub fn register_font(&mut self, name: &str, path: &str) -> std::io::Result<()> {
+    pub fn register_font(&mut self, name: &str, path: &str) -> std::io::Result<FontId> {
         let id = self.font_manager.register_font(name, path)?;
         if self.current_font.is_none() {
             self.current_font = Some(id);
         }
-        Ok(())
+        Ok(id)
     }
 
     /// Sets a text watermark for all pages.

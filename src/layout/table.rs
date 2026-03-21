@@ -1,5 +1,5 @@
 use crate::layout::text::escape_pdf_str;
-use crate::{Align, Color, Pdf, Size, VAlign};
+use crate::{Align, Color, Pdf, Size, VAlign, FontId};
 use std::io::Write;
 
 const CELL_PADDING: f64 = 5.0;
@@ -10,6 +10,7 @@ pub struct TableStyle {
     pub bg_color: Option<Color>,
     pub text_color: Option<Color>,
     pub font_size: f64,
+    pub font: Option<FontId>,
 }
 
 /// Border style options for tables.
@@ -28,6 +29,7 @@ impl TableStyle {
             bg_color: None,
             text_color: None,
             font_size,
+            font: None,
         }
     }
 
@@ -46,6 +48,12 @@ impl TableStyle {
     /// Sets the font size for text in cells.
     pub fn font_size(&mut self, size: f64) -> &mut Self {
         self.font_size = size;
+        self
+    }
+
+    /// Sets the font for cells.
+    pub fn font(&mut self, font: FontId) -> &mut Self {
+        self.font = Some(font);
         self
     }
 }
@@ -87,6 +95,7 @@ pub struct TableCell {
     pub bg_color: Option<Color>,
     pub text_color: Option<Color>,
     pub font_size: Option<f64>,
+    pub font: Option<FontId>,
 }
 
 impl TableCell {
@@ -102,6 +111,7 @@ impl TableCell {
             bg_color: None,
             text_color: None,
             font_size: None,
+            font: None,
         }
     }
 
@@ -117,6 +127,7 @@ impl TableCell {
             bg_color: None,
             text_color: None,
             font_size: None,
+            font: None,
         }
     }
 
@@ -132,6 +143,7 @@ impl TableCell {
             bg_color: None,
             text_color: None,
             font_size: None,
+            font: None,
         }
     }
 
@@ -198,6 +210,12 @@ impl TableCell {
         self.font_size = Some(size);
         self
     }
+
+    /// Sets an individual font for this cell.
+    pub fn font(mut self, font: FontId) -> Self {
+        self.font = Some(font);
+        self
+    }
 }
 
 impl From<&str> for TableCell {
@@ -218,6 +236,7 @@ impl From<String> for TableCell {
             bg_color: None,
             text_color: None,
             font_size: None,
+            font: None,
         }
     }
 }
@@ -323,6 +342,14 @@ impl RowBuilder {
     pub fn font_size(&mut self, size: f64) -> &mut Self {
         if let Some(last) = self.cells.last_mut() {
             last.font_size = Some(size);
+        }
+        self
+    }
+
+    /// Sets the font for the most recently added cell.
+    pub fn font(&mut self, font: FontId) -> &mut Self {
+        if let Some(last) = self.cells.last_mut() {
+            last.font = Some(font);
         }
         self
     }
@@ -571,6 +598,7 @@ impl<'a, W: Write> StreamingTable<'a, W> {
             &self.resolved_widths,
             self.default_w,
             self.row_style.font_size,
+            self.row_style.font,
         );
         let h = heights.first().copied().unwrap_or(0.0);
 
@@ -640,6 +668,7 @@ impl<'a, W: Write> StreamingTable<'a, W> {
             &self.resolved_widths,
             self.default_w,
             self.header_style.font_size,
+            self.header_style.font,
         );
 
         if header_heights.is_empty() {
@@ -705,17 +734,20 @@ pub struct Table {
     zebra_color: Option<Color>,
 }
 
-fn measure<W: Write>(pdf: &Pdf<W>, text: &str, font_size: f64, bold: bool) -> f64 {
+fn measure<W: Write>(pdf: &Pdf<W>, text: &str, font_size: f64, bold: bool, font_override: Option<FontId>) -> f64 {
     let mut font_name = String::new();
-    if let Some(fid) = pdf.current_font {
+    
+    let base_font = font_override.or(pdf.current_font);
+    
+    if let Some(fid) = base_font {
         font_name = pdf.font_manager.get_font(fid).name.clone();
     }
-
+    
     let target_font = if bold && !font_name.is_empty() {
         let bold_name = format!("{}-Bold", font_name);
-        pdf.font_manager.get_font_id(&bold_name).or(pdf.current_font)
+        pdf.font_manager.get_font_id(&bold_name).or(base_font)
     } else {
-        pdf.current_font
+        base_font
     };
 
     match target_font {
@@ -800,10 +832,10 @@ fn parse_rich_text(text: &str) -> Vec<TextSegment> {
     segments
 }
 
-fn wrap<W: Write>(pdf: &Pdf<W>, text: &str, col_width: f64, font_size: f64) -> Vec<Vec<TextSegment>> {
+fn wrap<W: Write>(pdf: &Pdf<W>, text: &str, col_width: f64, font_size: f64, font_override: Option<FontId>) -> Vec<Vec<TextSegment>> {
     let available = (col_width - CELL_PADDING * 2.0).max(1.0);
     let mut lines: Vec<Vec<TextSegment>> = Vec::new();
-
+    
     for explicit_line in text.split('\n') {
         let mut current_line: Vec<TextSegment> = Vec::new();
         let mut current_line_width = 0.0;
@@ -814,7 +846,7 @@ fn wrap<W: Write>(pdf: &Pdf<W>, text: &str, col_width: f64, font_size: f64) -> V
             let words: Vec<&str> = seg.text.split_inclusive(char::is_whitespace).collect();
             
             for word in words {
-                let word_w = measure(pdf, word, font_size, seg.bold);
+                let word_w = measure(pdf, word, font_size, seg.bold, font_override);
                 
                 if current_line_width + word_w > available && !current_line.is_empty() {
                     lines.push(current_line);
@@ -869,6 +901,7 @@ fn process_rows<'a, W: Write>(
     resolved_widths: &[f64],
     default_w: f64,
     font_size: f64,
+    font_override: Option<FontId>,
 ) -> (Vec<GridCell<'a>>, Vec<f64>) {
     let mut occupied = vec![vec![false; num_cols]; rows.len()];
     let mut placements = Vec::new();
@@ -913,9 +946,10 @@ fn process_rows<'a, W: Write>(
         if p.span_h == 1 {
             let w = spanned_width(resolved_widths, p.start_col, p.span_w, default_w);
             let cell_font_size = p.cell.font_size.unwrap_or(font_size);
+            let cell_font = p.cell.font.or(font_override);
             let needed_h = match &p.cell.content {
                 Cell::Text(t) => {
-                    let lines = wrap(pdf, t, w, cell_font_size);
+                    let lines = wrap(pdf, t, w, cell_font_size, cell_font);
                     lines.len() as f64 * (cell_font_size * pdf.line_spacing) + CELL_PADDING * 2.0
                 }
                 _ => cell_font_size * pdf.line_spacing + CELL_PADDING * 2.0,
@@ -930,9 +964,10 @@ fn process_rows<'a, W: Write>(
         if p.span_h > 1 {
             let w = spanned_width(resolved_widths, p.start_col, p.span_w, default_w);
             let cell_font_size = p.cell.font_size.unwrap_or(font_size);
+            let cell_font = p.cell.font.or(font_override);
             let needed_h = match &p.cell.content {
                 Cell::Text(t) => {
-                    let lines = wrap(pdf, t, w, cell_font_size);
+                    let lines = wrap(pdf, t, w, cell_font_size, cell_font);
                     lines.len() as f64 * (cell_font_size * pdf.line_spacing) + CELL_PADDING * 2.0
                 }
                 _ => cell_font_size * pdf.line_spacing + CELL_PADDING * 2.0,
@@ -994,7 +1029,8 @@ fn draw_cell_content<W: Write>(
 
     match &tc.content {
         Cell::Text(text) => {
-            let lines = wrap(pdf, text, w, cell_font_size);
+            let cell_font = tc.font.or(style.font);
+            let lines = wrap(pdf, text, w, cell_font_size, cell_font);
             let total_text_h = lines.len() as f64 * line_height;
             let v_shift = match valign {
                 VAlign::Top => 0.0,
@@ -1011,7 +1047,7 @@ fn draw_cell_content<W: Write>(
             for line in lines {
                 let mut line_w = 0.0;
                 for seg in &line {
-                    line_w += measure(pdf, &seg.text, cell_font_size, seg.bold);
+                    line_w += measure(pdf, &seg.text, cell_font_size, seg.bold, cell_font);
                 }
 
                 let h_shift = match align {
@@ -1023,20 +1059,22 @@ fn draw_cell_content<W: Write>(
                 let mut current_x = x + CELL_PADDING + h_shift;
 
                 for seg in &line {
-                    let seg_w = measure(pdf, &seg.text, cell_font_size, seg.bold);
+                    let seg_w = measure(pdf, &seg.text, cell_font_size, seg.bold, cell_font);
                     let seg_color = seg.color.or(tc.text_color).or(style.text_color).unwrap_or(Color::Rgb(0, 0, 0));
                     pdf.set_fill_color(seg_color)?;
 
                     let mut font_name = String::new();
-                    if let Some(fid) = pdf.current_font {
+                    let base_font = cell_font.or(pdf.current_font);
+                    
+                    if let Some(fid) = base_font {
                         font_name = pdf.font_manager.get_font(fid).name.clone();
                     }
-
+ 
                     let target_font = if seg.bold && !font_name.is_empty() {
                         let bold_name = format!("{}-Bold", font_name);
-                        pdf.font_manager.get_font_id(&bold_name).or(pdf.current_font)
+                        pdf.font_manager.get_font_id(&bold_name).or(base_font)
                     } else {
-                        pdf.current_font
+                        base_font
                     };
 
                     match target_font {
@@ -1135,6 +1173,7 @@ impl Table {
             &resolved_widths,
             default_w,
             self.header_style.font_size,
+            self.header_style.font,
         );
 
         let (body_placements, body_heights) = process_rows(
@@ -1144,6 +1183,7 @@ impl Table {
             &resolved_widths,
             default_w,
             self.row_style.font_size,
+            self.row_style.font,
         );
 
         let draw_header = |pdf: &mut Pdf<W>| -> std::io::Result<()> {

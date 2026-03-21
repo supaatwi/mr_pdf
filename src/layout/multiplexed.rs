@@ -1,9 +1,35 @@
-use crate::{Align, Color, Pdf, Size, TableBuilder, VAlign};
+use crate::{Align, Color, FontId, Pdf, Size, TableBuilder, VAlign};
 use crate::layout::table::{TableCell, Cell};
 use std::collections::{HashMap, VecDeque};
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
+
+/// Configuration for table key title appearance.
+#[derive(Clone, Debug)]
+pub struct TitleStyle {
+    pub size: f64,
+    pub color: Option<Color>,
+    pub font: Option<FontId>,
+    pub bold: bool,
+    pub align: Align,
+    pub margin_top: f64,
+    pub margin_bottom: f64,
+}
+
+impl Default for TitleStyle {
+    fn default() -> Self {
+        Self {
+            size: 14.0,
+            color: None,
+            font: None,
+            bold: true,
+            align: Align::Left,
+            margin_top: 0.0,
+            margin_bottom: 15.0,
+        }
+    }
+}
 
 /// A high-performance multiplexed table streamer that buffers rows to disk.
 /// This allows interleaving rows for different tables while keeping RAM usage constant.
@@ -14,6 +40,10 @@ pub struct MultiplexedTable {
     render_order: Vec<String>,
     table_builder: TableBuilder,
     key_builders: HashMap<String, TableBuilder>,
+    default_show_keys: bool,
+    key_show_keys: HashMap<String, bool>,
+    default_title_style: TitleStyle,
+    key_title_styles: HashMap<String, TitleStyle>,
 }
 
 impl MultiplexedTable {
@@ -28,7 +58,31 @@ impl MultiplexedTable {
             render_order: Vec::new(),
             table_builder: builder,
             key_builders: HashMap::new(),
+            default_show_keys: false,
+            key_show_keys: HashMap::new(),
+            default_title_style: TitleStyle::default(),
+            key_title_styles: HashMap::new(),
         })
+    }
+
+    /// Sets the default title style for table keys.
+    pub fn title_style(&mut self, style: TitleStyle) {
+        self.default_title_style = style;
+    }
+
+    /// Sets a specific title style for a given table key.
+    pub fn key_title_style(&mut self, key: &str, style: TitleStyle) {
+        self.key_title_styles.insert(key.to_string(), style);
+    }
+
+    /// Sets the default visibility for table keys as titles.
+    pub fn show_keys(&mut self, show: bool) {
+        self.default_show_keys = show;
+    }
+
+    /// Sets whether to show the key as a title for a specific table.
+    pub fn show_key(&mut self, key: &str, show: bool) {
+        self.key_show_keys.insert(key.to_string(), show);
     }
 
     /// Sets a specific TableBuilder for a given key.
@@ -107,6 +161,29 @@ impl MultiplexedTable {
             let file_path = self.temp_dir.join(&key);
             if !file_path.exists() {
                 continue;
+            }
+
+            if *self.key_show_keys.get(&key).unwrap_or(&self.default_show_keys) {
+                let style = self.key_title_styles.get(&key).unwrap_or(&self.default_title_style);
+                
+                // Get font name before borrowing pdf for TextBlock
+                let font_name = if let Some(fid) = style.font {
+                    pdf.font_manager.get_font_name(fid).map(|s| s.to_string())
+                } else {
+                    None
+                };
+
+                let mut text = pdf.text(&key)
+                    .size(style.size)
+                    .align(style.align)
+                    .margin_top(style.margin_top)
+                    .margin_bottom(style.margin_bottom);
+                
+                if style.bold { text = text.bold(); }
+                if let Some(color) = style.color { text = text.color(color); }
+                if let Some(name) = font_name {
+                    text = text.font(&name);
+                }
             }
 
             // Start a new streaming table for this key
@@ -232,6 +309,15 @@ fn serialize_cell<W: Write>(w: &mut W, cell: &TableCell) -> io::Result<()> {
         }
     }
 
+    // Font ID
+    match cell.font {
+        None => w.write_all(&[0])?,
+        Some(fid) => {
+            w.write_all(&[1])?;
+            w.write_all(&(fid.0 as u32).to_le_bytes())?;
+        }
+    }
+
     Ok(())
 }
 
@@ -318,6 +404,16 @@ fn deserialize_cell<R: Read>(r: &mut R) -> io::Result<TableCell> {
         None
     };
 
+    let mut has_font_buf = [0u8; 1];
+    r.read_exact(&mut has_font_buf)?;
+    let font = if has_font_buf[0] == 1 {
+        let mut fid_buf = [0u8; 4];
+        r.read_exact(&mut fid_buf)?;
+        Some(crate::FontId(u32::from_le_bytes(fid_buf) as usize))
+    } else {
+        None
+    };
+
     Ok(TableCell {
         content,
         colspan,
@@ -328,5 +424,6 @@ fn deserialize_cell<R: Read>(r: &mut R) -> io::Result<TableCell> {
         bg_color,
         text_color,
         font_size,
+        font,
     })
 }

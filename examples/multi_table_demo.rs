@@ -1,4 +1,4 @@
-use mr_pdf::{Color, Pdf, SizeExt, TableBuilder, TableBorderStyle, TableCell};
+use mr_pdf::{Pdf, SizeExt, TableBorderStyle, TableBuilder, TableCell, Color, TitleStyle, Align};
 use std::fs::File;
 
 fn main() -> std::io::Result<()> {
@@ -17,7 +17,10 @@ fn main() -> std::io::Result<()> {
         .size(12.0)
         .margin_bottom(20.0);
 
-    // Common builder for the tables
+    // Register a font if available (e.g. Thai Sarabun)
+    let font_id = pdf.register_font("Sarabun", "font/Sarabun-Regular.ttf").ok();
+
+    // 1. Common builder for the tables
     let mut builder = TableBuilder::new();
     builder
         .widths(vec![100.0.pt(), 150.0.pt(), 150.0.pt()])
@@ -28,30 +31,41 @@ fn main() -> std::io::Result<()> {
     // Start multiplexed streaming
     let mut multi = pdf.multi_table_streaming(builder)?;
 
-    // 2. ปรับแต่งโครงสร้างแยกเฉพาะแต่ละโต๊ะได้เลย
-    // สำหรับ "Summary" เราปรับทั้งความกว้างคอลัมน์และลักษณะเส้นขอบผ่าน builder()
+    // 2. ปรับแต่งโครงสร้างและสไตล์แยกเฉพาะโต๊ะ
+    // แสดง Key เป็นชื่อหัวตารางเป็นค่าเริ่มต้น แต่เราจะปิดสำหรับ Summary
+    multi.show_keys(true);
+    multi.show_key("Summary", false);
+
+    // ปรับแต่งสีและขนาดของหัวข้อ Key (เช่น A, B, C)
+    let mut title_style = TitleStyle::default();
+    title_style.size = 18.0;
+    title_style.color = Some(Color::Rgb(0, 100, 200)); // สีน้ำเงินพรีเมียม
+    if let Some(fid) = font_id { title_style.font = Some(fid); }
+    
+    multi.title_style(title_style);
+
+    // สำหรับ "Summary"
     multi.builder("Summary")
         .widths(vec![150.0.pt(), 250.0.pt()])
         .border(TableBorderStyle::Full)
         .header(vec!["Summary Metric", "Details"]);
 
-    // สำหรับโต๊ะอื่นๆ เราอาจจะปรับแค่ Header หรือ Widths ก็ได้
+    // ทดสอบการใช้ Font เฉพาะเจาะจงในโต๊ะ "A"
+    if let Some(fid) = font_id {
+        multi.builder("A").row_style().font(fid);
+        multi.builder("A").header_style().font(fid);
+    }
+    
     multi.widths("A", vec![80.0.pt(), 120.0.pt(), 200.0.pt()]);
     multi.header("A", vec!["Vehicle A ID", "Checked at", "Activity Log"]);
-    
-    multi.widths("B", vec![80.0.pt(), 120.0.pt(), 200.0.pt()]);
-    multi.header("B", vec!["Vehicle B ID", "Captured at", "GPS Coordinate"]);
-    
-    multi.widths("C", vec![80.0.pt(), 120.0.pt(), 200.0.pt()]);
-    multi.header("C", vec!["Vehicle C ID", "Updated at", "System Status"]);
 
     // Simulate interleaved incoming data
-    // Summary, A, B, C arriving in random order
-    for i in 1..=5 {
+    // เพิ่มจำนวนข้อมูลขึ้นเพื่อให้ล้นไปหน้า 2 (Page Break Test)
+    for i in 1..=40 {
         multi.insert("A", vec![
             TableCell::from(format!("A-{}", i)), 
             TableCell::from(format!("10:0{:02}:00", i)), 
-            TableCell::from(format!("Movement detected #{}", i))
+            TableCell::from(format!("Activity #{}", i)).link("https://github.com/supaatwi/mr-pdf")
         ])?;
         
         multi.insert("B", vec![
@@ -60,8 +74,7 @@ fn main() -> std::io::Result<()> {
             TableCell::from(format!("GPS update #{}", i))
         ])?;
 
-        // Interleaving some summary data as it's calculated
-        if i == 5 {
+        if i == 40 {
             multi.insert("Summary", vec![
                 TableCell::from("TOTAL VEHICLES"),
                 TableCell::from("3 (A, B, C)")
