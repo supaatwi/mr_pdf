@@ -605,9 +605,12 @@ impl<'a, W: Write> StreamingTable<'a, W> {
         self.pdf.check_page_break(h)?;
         let pos_y = self.pdf.cursor_pos().1;
 
-        // Header repetition on new pages
-        if pos_y > self.top_y && self.repeat_header && !self.header.is_empty() {
-            self.draw_header()?;
+        // Page break occurred (or cursor moved higher)
+        if pos_y > self.top_y {
+            if self.repeat_header && !self.header.is_empty() {
+                self.draw_header()?;
+            }
+            // Always update top_y to the actual drawing start point on the new page
             self.top_y = self.pdf.cursor_pos().1;
         }
 
@@ -1248,8 +1251,11 @@ impl Table {
             pdf.check_page_break(h)?;
             
             let pos_y = pdf.cursor_pos().1;
-            if pos_y > top_y && self.repeat_header && !self.header.is_empty() {
-                draw_header(pdf)?;
+            if pos_y > top_y {
+                if self.repeat_header && !self.header.is_empty() {
+                    draw_header(pdf)?;
+                }
+                // Always sync top_y to the current page cursor
                 top_y = pdf.cursor_pos().1;
             }
 
