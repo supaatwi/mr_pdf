@@ -17,9 +17,9 @@ fn main() -> std::io::Result<()> {
     let mut builder = TableBuilder::new();
     builder
         .widths(vec![
-            30.0.pt(), 60.0.pt(), 30.0.pt(), 70.0.pt(), 70.0.pt(), 
-            90.0.pt(), 120.0.pt(), 40.0.pt(), 90.0.pt(), 120.0.pt(), 
-            40.0.pt(), 80.0.pt(), 30.0.pt()
+            25.0.pt(), 50.0.pt(), 20.0.pt(), 60.0.pt(), 60.0.pt(), 
+            80.0.pt(), 100.0.pt(), 40.0.pt(), 80.0.pt(), 100.0.pt(), 
+            40.0.pt(), 70.0.pt(), 25.0.pt()
         ])
         .border(TableBorderStyle::Full)
         .zebra(Color::Rgb(245, 245, 245))

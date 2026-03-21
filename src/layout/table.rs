@@ -849,15 +849,56 @@ fn wrap<W: Write>(pdf: &Pdf<W>, text: &str, col_width: f64, font_size: f64, font
             let words: Vec<&str> = seg.text.split_inclusive(char::is_whitespace).collect();
             
             for word in words {
-                let word_w = measure(pdf, word, font_size, seg.bold, font_override);
+                let mut word_w = measure(pdf, word, font_size, seg.bold, font_override);
                 
-                if current_line_width + word_w > available && !current_line.is_empty() {
-                    lines.push(current_line);
-                    current_line = Vec::new();
-                    current_line_width = 0.0;
+                if current_line_width + word_w > available {
+                    // If current line has content, move to next line and try again
+                    if !current_line.is_empty() {
+                        lines.push(current_line);
+                        current_line = Vec::new();
+                        current_line_width = 0.0;
+                    }
+                    
+                    // Re-measure after clearing current line
+                    word_w = measure(pdf, word, font_size, seg.bold, font_override);
+                    
+                    // If word still exceeds available width, break it down character by character
+                    if word_w > available {
+                        let mut current_word_fragment = String::new();
+                        let mut current_fragment_w = 0.0;
+                        
+                        for c in word.chars() {
+                            let char_w = measure(pdf, &c.to_string(), font_size, seg.bold, font_override);
+                            
+                            if current_fragment_w + char_w > available {
+                                if !current_word_fragment.is_empty() {
+                                    lines.push(vec![TextSegment {
+                                        text: current_word_fragment,
+                                        bold: seg.bold,
+                                        color: seg.color,
+                                    }]);
+                                }
+                                current_word_fragment = c.to_string();
+                                current_fragment_w = char_w;
+                            } else {
+                                current_word_fragment.push(c);
+                                current_fragment_w += char_w;
+                            }
+                        }
+                        
+                        if !current_word_fragment.is_empty() {
+                            current_line.push(TextSegment {
+                                text: current_word_fragment,
+                                bold: seg.bold,
+                                color: seg.color,
+                            });
+                            current_line_width = current_fragment_w;
+                        }
+                        continue;
+                    }
                 }
                 
-                // Add word to current line, merging with last segment if style matches
+                // Normal case: word fits in current (possibly new) line
                 if let Some(last) = current_line.last_mut() 
                     && last.bold == seg.bold 
                     && last.color == seg.color {
