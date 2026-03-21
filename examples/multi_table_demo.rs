@@ -28,20 +28,22 @@ fn main() -> std::io::Result<()> {
     // Start multiplexed streaming
     let mut multi = pdf.multi_table_streaming(builder)?;
 
-    // CUSTOMIZATION: Each table can have its own header and layout!
-    // Let's make "Summary" look completely different (2 columns instead of 3)
-    let mut summary_builder = TableBuilder::new();
-    summary_builder
+    // 2. ปรับแต่งโครงสร้างแยกเฉพาะแต่ละโต๊ะได้เลย
+    // สำหรับ "Summary" เราปรับทั้งความกว้างคอลัมน์และลักษณะเส้นขอบผ่าน builder()
+    multi.builder("Summary")
         .widths(vec![150.0.pt(), 250.0.pt()])
         .border(TableBorderStyle::Full)
         .header(vec!["Summary Metric", "Details"]);
-    
-    multi.set_builder("Summary", summary_builder);
 
-    // You can also just change the header for specific tables
-    multi.header("A", vec!["Vehicle A ID", "Time", "Activity Log"]);
-    multi.header("B", vec!["Vehicle B ID", "Time", "GPS Coordinate"]);
-    multi.header("C", vec!["Vehicle C ID", "Time", "System Status"]);
+    // สำหรับโต๊ะอื่นๆ เราอาจจะปรับแค่ Header หรือ Widths ก็ได้
+    multi.widths("A", vec![80.0.pt(), 120.0.pt(), 200.0.pt()]);
+    multi.header("A", vec!["Vehicle A ID", "Checked at", "Activity Log"]);
+    
+    multi.widths("B", vec![80.0.pt(), 120.0.pt(), 200.0.pt()]);
+    multi.header("B", vec!["Vehicle B ID", "Captured at", "GPS Coordinate"]);
+    
+    multi.widths("C", vec![80.0.pt(), 120.0.pt(), 200.0.pt()]);
+    multi.header("C", vec!["Vehicle C ID", "Updated at", "System Status"]);
 
     // Simulate interleaved incoming data
     // Summary, A, B, C arriving in random order

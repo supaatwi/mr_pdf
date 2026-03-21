@@ -1,4 +1,4 @@
-use crate::{Align, Color, Pdf, TableBuilder, VAlign};
+use crate::{Align, Color, Pdf, Size, TableBuilder, VAlign};
 use crate::layout::table::{TableCell, Cell};
 use std::collections::{HashMap, VecDeque};
 use std::fs::{self, File};
@@ -44,9 +44,26 @@ impl MultiplexedTable {
         I: IntoIterator<Item = T>,
         T: Into<TableCell>,
     {
-        let mut builder = self.key_builders.get(key).cloned().unwrap_or_else(|| self.table_builder.clone());
+        let builder = self.builder(key);
         builder.header(header);
-        self.key_builders.insert(key.to_string(), builder);
+    }
+
+    /// Shortcut to set column widths for a specific key.
+    pub fn widths<I, T>(&mut self, key: &str, widths: I)
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<Size>,
+    {
+        let builder = self.builder(key);
+        builder.widths(widths);
+    }
+
+    /// Returns a mutable reference to the TableBuilder for a specific key.
+    /// This is the most flexible way to customize a specific table.
+    /// If no builder exists for this key, it clones the default one.
+    pub fn builder(&mut self, key: &str) -> &mut TableBuilder {
+        self.key_builders.entry(key.to_string())
+            .or_insert_with(|| self.table_builder.clone())
     }
 
     /// Appends a row to a specific table identified by key.
