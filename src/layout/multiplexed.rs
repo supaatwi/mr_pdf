@@ -13,6 +13,7 @@ pub struct MultiplexedTable {
     writers: HashMap<String, BufWriter<File>>,
     render_order: Vec<String>,
     table_builder: TableBuilder,
+    key_builders: HashMap<String, TableBuilder>,
 }
 
 impl MultiplexedTable {
@@ -26,7 +27,26 @@ impl MultiplexedTable {
             writers: HashMap::new(),
             render_order: Vec::new(),
             table_builder: builder,
+            key_builders: HashMap::new(),
         })
+    }
+
+    /// Sets a specific TableBuilder for a given key.
+    /// This allows different tables to have different headers, widths, and styles.
+    pub fn set_builder(&mut self, key: &str, builder: TableBuilder) {
+        self.key_builders.insert(key.to_string(), builder);
+    }
+
+    /// Shortcut to set only the header for a specific key.
+    /// It clones the default builder and updates its header.
+    pub fn header<I, T>(&mut self, key: &str, header: I)
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<TableCell>,
+    {
+        let mut builder = self.key_builders.get(key).cloned().unwrap_or_else(|| self.table_builder.clone());
+        builder.header(header);
+        self.key_builders.insert(key.to_string(), builder);
     }
 
     /// Appends a row to a specific table identified by key.
@@ -73,7 +93,8 @@ impl MultiplexedTable {
             }
 
             // Start a new streaming table for this key
-            let mut streaming = self.table_builder.clone().start(pdf)?;
+            let builder = self.key_builders.get(&key).unwrap_or(&self.table_builder);
+            let mut streaming = builder.clone().start(pdf)?;
             
             let file = File::open(file_path)?;
             let mut reader = BufReader::new(file);

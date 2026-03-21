@@ -28,17 +28,32 @@ fn main() -> std::io::Result<()> {
     // Start multiplexed streaming
     let mut multi = pdf.multi_table_streaming(builder)?;
 
+    // CUSTOMIZATION: Each table can have its own header and layout!
+    // Let's make "Summary" look completely different (2 columns instead of 3)
+    let mut summary_builder = TableBuilder::new();
+    summary_builder
+        .widths(vec![150.0.pt(), 250.0.pt()])
+        .border(TableBorderStyle::Full)
+        .header(vec!["Summary Metric", "Details"]);
+    
+    multi.set_builder("Summary", summary_builder);
+
+    // You can also just change the header for specific tables
+    multi.header("A", vec!["Vehicle A ID", "Time", "Activity Log"]);
+    multi.header("B", vec!["Vehicle B ID", "Time", "GPS Coordinate"]);
+    multi.header("C", vec!["Vehicle C ID", "Time", "System Status"]);
+
     // Simulate interleaved incoming data
     // Summary, A, B, C arriving in random order
     for i in 1..=5 {
         multi.insert("A", vec![
-            TableCell::from("Vehicle A"), 
+            TableCell::from(format!("A-{}", i)), 
             TableCell::from(format!("10:0{:02}:00", i)), 
             TableCell::from(format!("Movement detected #{}", i))
         ])?;
         
         multi.insert("B", vec![
-            TableCell::from("Vehicle B"), 
+            TableCell::from(format!("B-{}", i)), 
             TableCell::from(format!("11:1{:02}:00", i)), 
             TableCell::from(format!("GPS update #{}", i))
         ])?;
@@ -46,14 +61,17 @@ fn main() -> std::io::Result<()> {
         // Interleaving some summary data as it's calculated
         if i == 5 {
             multi.insert("Summary", vec![
-                TableCell::from("TOTAL"),
-                TableCell::from("All Vehicles"),
-                TableCell::from("Processed successfully")
+                TableCell::from("TOTAL VEHICLES"),
+                TableCell::from("3 (A, B, C)")
+            ])?;
+            multi.insert("Summary", vec![
+                TableCell::from("STATUS"),
+                TableCell::from("All systems operational")
             ])?;
         }
 
         multi.insert("C", vec![
-            TableCell::from("Vehicle C"), 
+            TableCell::from(format!("C-{}", i)), 
             TableCell::from(format!("12:2{:02}:00", i)), 
             TableCell::from(format!("Status OK #{}", i))
         ])?;
